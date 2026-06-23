@@ -307,15 +307,7 @@ write_sing_box_config() {
         "level": "info",
         "timestamp": true
       },
-      "inbounds": ($inbounds | map(. += {
-        "tcp_keep_alive": "30s",
-        "tcp_keep_alive_interval": "10s",
-        "tcp_keep_alive_count": 3,
-        "tcp_fast_open": true,
-        "tcp_multi_path": false,
-        "udp_fragment": true,
-        "udp_timeout": "120s"
-      })),
+      "inbounds": $inbounds,
       "outbounds": [
         {
           "type": "direct",
