@@ -97,11 +97,6 @@ write_sing_box_config() {
     --arg vmess_uuid "${VMESS_UUID:-}" \
     --arg vmess_ws_path "${VMESS_WS_PATH:-}" \
     --arg vmess_tls_enabled "${VMESS_TLS_ENABLED:-0}" \
-    --arg vmess_enabled "${VMESS_ENABLED:-0}" \
-    --arg vmess_port "${VMESS_PORT:-}" \
-    --arg vmess_uuid "${VMESS_UUID:-}" \
-    --arg vmess_ws_path "${VMESS_WS_PATH:-}" \
-    --arg vmess_tls_enabled "${VMESS_TLS_ENABLED:-0}" \
     --arg tuic_enabled "${TUIC_ENABLED:-0}" \
     --arg tuic_port "${TUIC_PORT:-}" \
     --arg tuic_password "${TUIC_PASSWORD:-}" \
@@ -234,13 +229,19 @@ write_sing_box_config() {
         "type": "ws",
         "path": $vmess_ws_path
       },
-      "tls": {
-        "enabled": ($vmess_tls_enabled == "1"),
-        "server_name": $domain,
-        "certificate_path": $cert_path,
-        "key_path": $key_path
-      }
-    } + (if $vmess_tls_enabled != "1" then {"tls": {"enabled": false}} else {} end)
+      "tls": (
+        if $vmess_tls_enabled == "1" then
+          {
+            "enabled": true,
+            "server_name": $domain,
+            "certificate_path": $cert_path,
+            "key_path": $key_path
+          }
+        else {
+            "enabled": false
+          }
+        end
+      )
     }
   else empty end),
   (if $vmess_enabled == "1" and $vmess_port != "" and $vmess_uuid != "" and $vmess_ws_path != "" then
