@@ -4,11 +4,14 @@ set -Eeuo pipefail
 # vless-xhttp-reality-self - Multi-protocol VPS proxy installer (entry)
 # =============================================================================
 
+GITHUB_REPO="wuyou18075/agsb-ex"
+GITHUB_BRANCH="main"
+GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}"
 
 APP_NAME="vless-xhttp-reality-self"
 APP_VERSION="0.19.11"
 INSTALL_SCRIPT="/usr/local/bin/${APP_NAME}.sh"
-INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/tao-t356/vless-xhttp-reality-self/main/scripts/install.sh"
+INSTALL_SCRIPT_URL="${GITHUB_RAW}/install.sh"
 
 NODE_NAME_VLESS="vless+tcp-reality"
 NODE_NAME_HY2="hy2"
@@ -30,9 +33,28 @@ NODE_NAME_SS2022="$NODE_NAME_SS2022_BASE"
 NODE_NAME_TUIC="$NODE_NAME_TUIC_BASE"
 NODE_NAME_VMESS="$NODE_NAME_VMESS_BASE"
 
+# ==== Auto-detect runtime environment ====
+SCRIPT_SRC="${BASH_SOURCE[0]:-$0}"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SRC")" 2>/dev/null && pwd || dirname "$SCRIPT_SRC" 2>/dev/null || echo ".")"
 
-# ==== Load modules ====
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [[ ! -f "${SCRIPT_DIR}/lib/base.sh" ]]; then
+  REMOTE_DIR="$(mktemp -d)" || { echo "无法创建临时目录"; exit 1; }
+  mkdir -p "${REMOTE_DIR}/lib"
+
+  echo "检测到远程安装，正在下载模块文件..."
+  for _lib in base.sh services.sh protocols.sh subscription.sh installer.sh; do
+    _url="${GITHUB_RAW}/lib/${_lib}"
+    _out="${REMOTE_DIR}/lib/${_lib}"
+    if ! curl -fsSL "$_url" -o "$_out"; then
+      echo "下载失败: $_url"
+      exit 1
+    fi
+  done
+  echo "模块文件已下载到 ${REMOTE_DIR}/lib"
+  SCRIPT_DIR="$REMOTE_DIR"
+fi
+
+# ==== Source modules ====
 source "${SCRIPT_DIR}/lib/base.sh"
 source "${SCRIPT_DIR}/lib/services.sh"
 source "${SCRIPT_DIR}/lib/protocols.sh"
