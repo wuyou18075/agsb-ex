@@ -1976,29 +1976,59 @@ EOF
   green "代理机器调优完成"
 }
 
-main() {
-  case "${1:-menu}" in
-    -h|--help|help)
-      show_help
-      ;;
-    -v|--version|version)
-      echo "${APP_NAME} ${APP_VERSION}"
-      ;;
-    --refresh-argo-subscription)
-      refresh_argo_subscription_once "${2:-manual}"
-      ;;
-    --wait-tcp)
-      wait_tcp_endpoint "${2:-}" "${3:-}" "${4:-45}"
-      ;;
-    menu)
-      require_root
-      require_supported_os
-      menu
-      ;;
-    *)
-      red "未知参数: $1"
-      show_help
-      exit 1
-      ;;
-  esac
+menu() {
+  while true; do
+    clear
+    cat <<"EOMENU"
+=============================================
+      五合一协议（Vless/Hy2/Tuic/Anytls/Vmess+Argo）
+=============================================
+$(detect_sing_box)
+ 快捷命令 agsb
+=============================================
+ 1) 安装sing-box
+ 2) 安装节点
+ 3) 续签证书
+ 4) 节点信息
+ 5) 服务状态
+ 6) 重启服务
+ 7) 日志
+ 8) 重置参数
+ 9) 恢复备份
+10) 卸载
+93) 本地浏览器测速（推荐）
+94) Argo优选域名（测速+切换）
+95) 代理机器调优（测速选优）
+96) 开启 fq qdisc
+97) 开启 cake qdisc
+98) 安装 BBRv3 内核
+99) 卸载 sing-box
+ 0) 退出
+=============================================
+EOMENU
+    read -r -p "请选择 [0-99]: " choice
+    case "$choice" in
+      1) install_singbox_only; pause ;;
+      2) full_install; pause ;;
+      3) renew_cert; pause ;;
+      4) show_node_info; pause ;;
+      5) show_status; pause ;;
+      6) restart_services; pause ;;
+      7) show_logs; pause ;;
+      8) reset_menu; pause ;;
+      9) restore_latest_backup; pause ;;
+      10) uninstall_menu; pause ;;
+      93) generate_speedtest_html; pause ;;
+      94) argo_speedtest_and_select; pause ;;
+      95) tune_proxy_machine; pause ;;
+      96) enable_fq_qdisc; pause ;;
+      97) enable_cake_qdisc; pause ;;
+      98) install_bbrv3_only; pause ;;
+      99) uninstall_singbox_only; pause ;;
+      0) exit 0 ;;
+      *) yellow "无效选项"; pause ;;
+    esac
+  done
 }
+
+main() {
