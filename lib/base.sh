@@ -548,6 +548,10 @@ save_state() {
       printf 'ARGO_EDGE_IP_VERSION=%q\n' "$ARGO_EDGE_IP_VERSION"
       printf 'ARGO_EDGE_SERVER=%q\n' "$ARGO_EDGE_SERVER"
       printf 'ARGO_MULTI_EDGE=%q\n' "${ARGO_MULTI_EDGE:-0}"
+      printf 'ARGO_EDGE_INDEX=%q\n' "${ARGO_EDGE_INDEX:-0}"
+      if [[ "${#ARGO_EDGE_SERVERS[@]}" -gt 0 ]]; then
+        printf 'ARGO_EDGE_SERVERS=(%s)\n' "$(printf ' %q' "${ARGO_EDGE_SERVERS[@]}")"
+      fi
       printf 'TUIC_ENABLED=%q\n' "$TUIC_ENABLED"
       printf 'TUIC_PORT=%q\n' "$TUIC_PORT"
       printf 'TUIC_PASSWORD=%q\n' "$TUIC_PASSWORD"
@@ -624,48 +628,48 @@ udp_port_used_by_hysteria() {
   show_udp_port_usage "$port" | grep -Eqi 'hysteria'
 }
 
-pick_hy2_port() {
-  local candidate
-  while :; do
-    candidate="$(shuf -i 2000-65535 -n 1)"
-    if ! port_in_use_udp "$candidate"; then
-      HY2_PORT="$candidate"
-      return 0
+prompt_port() {
+  local var_name="$1" desc="$2" min="${3:-50000}" max="${4:-60000}" udp="${5:-0}" candidate
+  read -r -p "请输入${desc}端口 [回车随机${min}-${max}]: " candidate
+  if [[ -z "$candidate" ]]; then
+    while :; do
+      candidate="$(shuf -i "$min"-"$max" -n 1)"
+      if [[ "$udp" == "2" ]]; then
+        if ! port_in_use_udp "$candidate"; then break; fi
+      elif [[ "$udp" == "1" ]]; then
+        if ! port_in_use "$candidate" && ! port_in_use_udp "$candidate"; then break; fi
+      else
+        if ! port_in_use "$candidate"; then break; fi
+      fi
+    done
+  else
+    if [[ ! "$candidate" =~ ^[0-9]+$ ]] || (( candidate < 1 || candidate > 65535 )); then
+      red "端口格式错误，跳过"
+      return 1
     fi
-  done
+    if port_in_use "$candidate"; then
+      red "端口 ${candidate} 已被占用"
+      return 1
+    fi
+    if [[ "$udp" != "0" ]] && port_in_use_udp "$candidate"; then
+      red "端口 ${candidate} UDP 已被占用"
+      return 1
+    fi
+  fi
+  printf -v "$var_name" '%s' "$candidate" 2>/dev/null || eval "$var_name=\$candidate"
 }
 
-pick_anytls_port() {
-  local candidate
-  while :; do
-    candidate="$(shuf -i 2000-65000 -n 1)"
-    if ! port_in_use "$candidate"; then
-      ANYTLS_PORT="$candidate"
-      return 0
-    fi
-  done
-}
-
-pick_ss2022_port() {
-  local candidate
-  while :; do
-    candidate="$(shuf -i 2000-65000 -n 1)"
-    if ! port_in_use "$candidate" && ! port_in_use_udp "$candidate"; then
-      SS2022_PORT="$candidate"
-      return 0
-    fi
-  done
+cycle_argo_edge_server() {
+  if (( ${#ARGO_EDGE_SERVERS[@]} <= 1 )); then
+    return
+  fi
+  ARGO_EDGE_INDEX="${ARGO_EDGE_INDEX:-0}"
+  ARGO_EDGE_SERVER="${ARGO_EDGE_SERVERS[$ARGO_EDGE_INDEX]}"
+  ARGO_EDGE_INDEX=$(( (ARGO_EDGE_INDEX + 1) % ${#ARGO_EDGE_SERVERS[@]} ))
 }
 
 pick_subscription_port() {
-  local candidate
-  while :; do
-    candidate="$(shuf -i 2000-65000 -n 1)"
-    if ! port_in_use "$candidate"; then
-      SUB_PORT="$candidate"
-      return 0
-    fi
-  done
+  prompt_port SUB_PORT "订阅" 50000 60000 || true
 }
 
 pick_argo_local_port() {
@@ -685,19 +689,17 @@ pick_argo_local_port() {
   done
 }
 
-pick_hy2_port_range() {
+prompt_hy2_port_range() {
+  prompt_port HY2_PORT "HY2" 50000 60000 1 || return 1
   local start end
   while :; do
-    HY2_PORT="$(shuf -i 2000-65000 -n 1)"
     start="$(shuf -i 20000-59000 -n 1)"
     end="$((start + 999))"
     if [[ "$HY2_PORT" -ge "$start" && "$HY2_PORT" -le "$end" ]]; then
       continue
     fi
-    if ! port_in_use_udp "$HY2_PORT"; then
-      HY2_PORT_RANGE="${start}-${end}"
-      return 0
-    fi
+    HY2_PORT_RANGE="${start}-${end}"
+    return 0
   done
 }
 
@@ -1283,44 +1285,12 @@ yaml_quote() {
   jq -rn --arg v "$1" '$v|@json'
 }
 
-pick_vmess_port() {
-  local candidate
-  while :; do
-    candidate="$(shuf -i 50000-60000 -n 1)"
-    if ! port_in_use "$candidate"; then
-      VMESS_PORT="$candidate"
-      return 0
-    fi
-  done
+prompt_vmess_port() {
+  prompt_port VMESS_PORT "VMess" 50000 60000 || true
 }
 
 has_vmess_install() {
   [[ "${VMESS_ENABLED:-0}" == "1" && -n "${VMESS_UUID:-}" && -f "$SING_BOX_CFG" ]]
-}
-
-clear_vmess_state_for_profile() {
-  VMESS_ENABLED="0"
-  VMESS_PORT=""
-  VMESS_UUID=""
-  VMESS_WS_PATH=""
-  VMESS_TLS_ENABLED="0"
-  VMESS_SERVER_ADDR=""
-  rm -f /etc/sing-box/node-info/vmess-share.txt /etc/sing-box/node-info/vmess-subscription-raw.txt /etc/sing-box/node-info/vmess-subscription-base64.txt /etc/sing-box/node-info/vmess-node-qr.png
-}
-
-has_vmess_install() {
-  [[ "${VMESS_ENABLED:-0}" == "1" && -n "${VMESS_UUID:-}" && -f "$SING_BOX_CFG" ]]
-}
-
-pick_vmess_port() {
-  local candidate
-  while :; do
-    candidate="$(shuf -i 50000-60000 -n 1)"
-    if ! port_in_use "$candidate"; then
-      VMESS_PORT="$candidate"
-      return 0
-    fi
-  done
 }
 
 clear_vmess_state_for_profile() {
@@ -1337,15 +1307,8 @@ has_tuic_install() {
   [[ "${TUIC_ENABLED:-0}" == "1" && -n "${TUIC_PASSWORD:-}" && -f "$SING_BOX_CFG" ]]
 }
 
-pick_tuic_port() {
-  local candidate
-  while :; do
-    candidate="$(shuf -i 2000-65000 -n 1)"
-    if ! port_in_use "$candidate" && ! port_in_use_udp "$candidate"; then
-      TUIC_PORT="$candidate"
-      return 0
-    fi
-  done
+prompt_tuic_port() {
+  prompt_port TUIC_PORT "TUIC" 50000 60000 1 || true
 }
 
 clear_tuic_state_for_profile() {

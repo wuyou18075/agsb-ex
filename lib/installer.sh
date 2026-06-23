@@ -1225,18 +1225,23 @@ full_install() {
 
   save_state
   if has_vless_install; then
+    cycle_argo_edge_server
     build_client_files
   fi
   if has_hy2_install; then
+    cycle_argo_edge_server
     build_hysteria2_share_files
   fi
   if has_anytls_install; then
+    cycle_argo_edge_server
     build_anytls_share_files
   fi
   if has_ss2022_install; then
+    cycle_argo_edge_server
     build_ss2022_share_files
   fi
   if has_argo_install; then
+    cycle_argo_edge_server
     build_argo_share_files || true
   fi
   install_subscription_service || refresh_subscription_service

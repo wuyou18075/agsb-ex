@@ -4,11 +4,18 @@
 # =============================================================================
 
 write_uri_subscription_raw() {
-  local out_file="$1"
+  local out_file="$1" saved_index="${ARGO_EDGE_INDEX:-0}"
 
   : > "$out_file"
 
+  # Reset round-robin so subscription output starts from first domain
+  ARGO_EDGE_INDEX=0
+  if [[ "${ARGO_MULTI_EDGE:-0}" == "1" && "${#ARGO_EDGE_SERVERS[@]}" -gt 0 ]]; then
+    ARGO_EDGE_SERVER="${ARGO_EDGE_SERVERS[0]}"
+  fi
+
   if has_vless_install; then
+    cycle_argo_edge_server
     build_client_files
     if [[ -f "$SUB_RAW_TXT" ]]; then
       sed '/^[[:space:]]*$/d' "$SUB_RAW_TXT" >> "$out_file"
@@ -16,6 +23,7 @@ write_uri_subscription_raw() {
   fi
 
   if has_hy2_install; then
+    cycle_argo_edge_server
     build_hysteria2_share_files
     if [[ -f "$HY2_SUB_RAW_TXT" ]]; then
       sed '/^[[:space:]]*$/d' "$HY2_SUB_RAW_TXT" >> "$out_file"
@@ -23,6 +31,7 @@ write_uri_subscription_raw() {
   fi
 
   if has_anytls_install; then
+    cycle_argo_edge_server
     build_anytls_share_files
     if [[ -f "$ANYTLS_SUB_RAW_TXT" ]]; then
       sed '/^[[:space:]]*$/d' "$ANYTLS_SUB_RAW_TXT" >> "$out_file"
@@ -33,6 +42,7 @@ write_uri_subscription_raw() {
   fi
 
   if has_ss2022_install; then
+    cycle_argo_edge_server
     build_ss2022_share_files
     if [[ -f "$SS2022_SUB_RAW_TXT" ]]; then
       sed '/^[[:space:]]*$/d' "$SS2022_SUB_RAW_TXT" >> "$out_file"
@@ -65,6 +75,7 @@ write_uri_subscription_raw() {
   fi
 
   [[ -s "$out_file" ]]
+  ARGO_EDGE_INDEX="$saved_index"
 }
 
 append_clash_proxy_names() {

@@ -405,13 +405,21 @@ calc_cert_public_key_pin_sha256() {
 }
 
 resolve_hy2_server_addr() {
-  HY2_SERVER_ADDR="$(preferred_direct_server_addr || printf '%s\n' "$DOMAIN")"
+  if [[ "${ARGO_MULTI_EDGE:-0}" == "1" && -n "${ARGO_EDGE_SERVER:-}" ]]; then
+    HY2_SERVER_ADDR="$ARGO_EDGE_SERVER"
+  else
+    HY2_SERVER_ADDR="$(preferred_direct_server_addr || printf '%s\n' "$DOMAIN")"
+  fi
   HY2_TLS_SNI="$DOMAIN"
 }
 
 build_client_files() {
   local e_sni e_pbk e_sid e_spx e_label server_addr uri
-  server_addr="$(preferred_direct_server_addr || printf '%s\n' "$DOMAIN")"
+  if [[ "${ARGO_MULTI_EDGE:-0}" == "1" && -n "${ARGO_EDGE_SERVER:-}" ]]; then
+    server_addr="$ARGO_EDGE_SERVER"
+  else
+    server_addr="$(preferred_direct_server_addr || printf '%s\n' "$DOMAIN")"
+  fi
   e_sni="$(urlenc "$DOMAIN")"
   e_pbk="$(urlenc "$PUBLIC_KEY")"
   e_sid="$(urlenc "$SHORT_ID")"
@@ -482,7 +490,11 @@ EOF
 
 
 pick_tuic_server_addr() {
-  TUIC_SERVER_ADDR="$(preferred_direct_server_addr || printf '%s\n' "$DOMAIN")"
+  if [[ "${ARGO_MULTI_EDGE:-0}" == "1" && -n "${ARGO_EDGE_SERVER:-}" ]]; then
+    TUIC_SERVER_ADDR="$ARGO_EDGE_SERVER"
+  else
+    TUIC_SERVER_ADDR="$(preferred_direct_server_addr || printf '%s\n' "$DOMAIN")"
+  fi
   TUIC_TLS_SNI="$DOMAIN"
 }
 
@@ -494,11 +506,16 @@ generate_vmess_identity() {
   VMESS_UUID="$(cat /proc/sys/kernel/random/uuid)"
   VMESS_WS_PATH="/ws-$(openssl rand -hex 6)"
   [[ -z "${VMESS_TLS_ENABLED:-}" ]] && VMESS_TLS_ENABLED="0"
+  if [[ "${ARGO_MULTI_EDGE:-0}" == "1" && -n "${ARGO_EDGE_SERVER:-}" ]]; then
+    VMESS_SERVER_ADDR="$ARGO_EDGE_SERVER"
+  else
+    VMESS_SERVER_ADDR="$(preferred_direct_server_addr || printf '%s\n' "$DOMAIN")"
+  fi
 }
 
 install_vmess_core() {
   install_sing_box
-  pick_vmess_port
+  prompt_port VMESS_PORT "VMess" || return
   generate_vmess_identity
   VMESS_ENABLED="1"
   write_sing_box_config
@@ -551,12 +568,17 @@ generate_vmess_identity() {
   VMESS_UUID="$(cat /proc/sys/kernel/random/uuid)"
   VMESS_WS_PATH="/ws-$(openssl rand -hex 6)"
   [[ -z "${VMESS_TLS_ENABLED:-}" ]] && VMESS_TLS_ENABLED="0"
+  if [[ "${ARGO_MULTI_EDGE:-0}" == "1" && -n "${ARGO_EDGE_SERVER:-}" ]]; then
+    VMESS_SERVER_ADDR="$ARGO_EDGE_SERVER"
+  else
+    VMESS_SERVER_ADDR="$(preferred_direct_server_addr || printf '%s\n' "$DOMAIN")"
+  fi
 }
 
 install_vmess_core() {
   install_sing_box
   generate_vmess_identity
-  pick_vmess_port
+  prompt_port VMESS_PORT "VMess" || return
   VMESS_ENABLED="1"
   write_sing_box_config
   build_vmess_share_files
@@ -609,7 +631,7 @@ install_tuic_core() {
   install_sing_box
   pick_tuic_server_addr
   generate_tuic_password
-  pick_tuic_port
+  prompt_tuic_port
   TUIC_ENABLED="1"
   write_sing_box_config
   build_tuic_share_files
@@ -618,7 +640,7 @@ install_tuic_core() {
 
 build_tuic_share_files() {
   local label e_sni e_pass uri
-  pick_tuic_server_addr
+  [[ "${ARGO_MULTI_EDGE:-0}" != "1" ]] && pick_tuic_server_addr
   label="$NODE_NAME_TUIC"
   e_pass="$(urlenc "$TUIC_PASSWORD")"
   e_sni="$(urlenc "$TUIC_TLS_SNI")"
@@ -660,22 +682,28 @@ show_node_info() {
   fi
 
   if has_vless_install; then
+    load_state || true
+    cycle_argo_edge_server
     build_client_files
   fi
 
   if has_hy2_install; then
+    cycle_argo_edge_server
     build_hysteria2_share_files
   fi
 
   if has_anytls_install; then
+    cycle_argo_edge_server
     build_anytls_share_files
   fi
 
   if has_ss2022_install; then
+    cycle_argo_edge_server
     build_ss2022_share_files
   fi
 
   if has_vmess_install; then
+    cycle_argo_edge_server
     if [[ -f /etc/sing-box/node-info/vmess-subscription-raw.txt ]]; then
       sed /^[[:space:]]*$/d /etc/sing-box/node-info/vmess-subscription-raw.txt >> "$out_file"
     else
@@ -684,6 +712,7 @@ show_node_info() {
     fi
   fi
   if has_argo_install; then
+    cycle_argo_edge_server
     ensure_argo_quick_service
     build_argo_share_files "0" || true
     save_state
@@ -763,12 +792,20 @@ prompt_hy2_obfs() {
 }
 
 resolve_anytls_server_addr() {
-  ANYTLS_SERVER_ADDR="$(preferred_direct_server_addr || printf '%s\n' "$DOMAIN")"
+  if [[ "${ARGO_MULTI_EDGE:-0}" == "1" && -n "${ARGO_EDGE_SERVER:-}" ]]; then
+    ANYTLS_SERVER_ADDR="$ARGO_EDGE_SERVER"
+  else
+    ANYTLS_SERVER_ADDR="$(preferred_direct_server_addr || printf '%s\n' "$DOMAIN")"
+  fi
   ANYTLS_TLS_SNI="$DOMAIN"
 }
 
 resolve_ss2022_server_addr() {
-  SS2022_SERVER_ADDR="$(preferred_direct_server_addr || printf '%s\n' "$DOMAIN")"
+  if [[ "${ARGO_MULTI_EDGE:-0}" == "1" && -n "${ARGO_EDGE_SERVER:-}" ]]; then
+    SS2022_SERVER_ADDR="$ARGO_EDGE_SERVER"
+  else
+    SS2022_SERVER_ADDR="$(preferred_direct_server_addr || printf '%s\n' "$DOMAIN")"
+  fi
 }
 
 write_anytls_config() {
@@ -863,7 +900,7 @@ install_anytls_core() {
 
   install_sing_box
   resolve_anytls_server_addr
-  pick_anytls_port
+  prompt_port ANYTLS_PORT "AnyTLS" || return
   generate_anytls_password
   ANYTLS_ENABLED="1"
   write_anytls_config
@@ -949,7 +986,7 @@ EOF
 install_ss2022_core() {
   install_sing_box
   resolve_ss2022_server_addr
-  pick_ss2022_port
+  prompt_port SS2022_PORT "Shadowsocks" 50000 60000 1 || return
   generate_ss2022_password
   SS2022_ENABLED="1"
   write_ss2022_config
@@ -963,7 +1000,7 @@ write_hysteria2_config() {
 
 build_hysteria2_share_files() {
   local e_auth e_label e_obfs_pass e_sni nohop_uri uri pin_sha256 pubkey_pin_sha256
-  resolve_hy2_server_addr
+  [[ "${ARGO_MULTI_EDGE:-0}" != "1" ]] && resolve_hy2_server_addr
   pin_sha256="$(calc_cert_pin_sha256)"
   pubkey_pin_sha256="$(calc_cert_public_key_pin_sha256)"
   e_auth="$(urlenc "$HY2_PASSWORD")"
@@ -1922,7 +1959,7 @@ install_hysteria2_core() {
 
   install_hysteria2_binary
   resolve_hy2_server_addr
-  pick_hy2_port_range
+  prompt_hy2_port_range
   generate_hy2_password
   HY2_ENABLED="1"
   write_hysteria2_config
