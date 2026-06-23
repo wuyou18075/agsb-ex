@@ -1,5 +1,8 @@
 # agsb-ex
 一键部署脚本
+```bash
+bash <(curl -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' -fsSL "https://raw.githubusercontent.com/wuyou18075/agsb-ex/main/install.sh?t=$(date +%s)")
+```
 # vless-xhttp-reality-self 功能文档
 
 > 多协议 VPS 代理安装管理脚本。  
