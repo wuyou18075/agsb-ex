@@ -2032,3 +2032,28 @@ EOMENU
 }
 
 main() {
+  case "${1:-menu}" in
+    -h|--help|help)
+      show_help
+      ;;
+    -v|--version|version)
+      echo "${APP_NAME} ${APP_VERSION}"
+      ;;
+    --refresh-argo-subscription)
+      refresh_argo_subscription_once "${2:-manual}"
+      ;;
+    --wait-tcp)
+      wait_tcp_endpoint "${2:-}" "${3:-}" "${4:-45}"
+      ;;
+    menu)
+      require_root
+      require_supported_os
+      menu
+      ;;
+    *)
+      red "未知参数: $1"
+      show_help
+      exit 1
+      ;;
+  esac
+}
