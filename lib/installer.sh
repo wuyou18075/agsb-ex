@@ -1965,4 +1965,13 @@ net.ipv4.tcp_sack = 1
 net.ipv4.tcp_adv_win_scale = -2
 net.ipv4.udp_rmem_min = 4096
 net.ipv4.udp_wmem_min = 4096
-net.core.udp_mem = ${best_buffer_bytes} $((be
+net.core.udp_mem = ${best_buffer_bytes} $((best_buffer_bytes / 4))
+EOF
+  fi
+  if sysctl -p "$BBR_SYSCTL" >/dev/null 2>&1; then
+    green "TCP 参数已应用"
+  else
+    yellow "部分参数应用失败，请检查系统兼容性"
+  fi
+  green "代理机器调优完成"
+}
