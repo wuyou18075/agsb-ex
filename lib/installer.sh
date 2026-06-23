@@ -1005,17 +1005,10 @@ full_install() {
       fi
     fi
 
-    # 用户选 n 或没有上次配置时：删缓存 → 输出测速页面 → 继续选伪装域名
+    # 用户选 n 或没有上次配置时：删缓存 → 直接进入伪装域名选择
     if [[ "${use_prev:-}" != "Y" && "${use_prev:-}" != "y" ]]; then
       # 清除旧的浏览器测速缓存
       rm -f /etc/sing-box/node-info/selected_domains.txt
-
-      # 生成测速页面（输出 URL + 启动后端服务，含60秒等待时间供测试）
-      generate_speedtest_html
-      echo
-      yellow "请现在打开上方测速页面测试，60秒后继续后续安装流程"
-      yellow "也可稍后在 Argo 域名选择时输入 93 重新生成测速页面"
-      echo
 
       # 自签模式：选伪装域名
       local -a reality_domains=(
@@ -1467,7 +1460,8 @@ var running=false,results=[],selected=new Set();
     pc.onicecandidate = function(e){
       if(e.candidate){
         var ip = e.candidate.candidate.split(" ")[4];
-        if(ip && ip.indexOf(".")>=0 && !ip.startsWith("192.168.") && !ip.startsWith("10.") && !ip.startsWith("172.1")){
+        // Show first non-private IPv4 address found
+        if(ip && ip.indexOf(".")>=0 && !ip.startsWith("192.168.") && !ip.startsWith("10.") && !ip.startsWith("172.1") && !ip.startsWith("0.")){
           document.getElementById("myip").innerHTML = ip + ' <span style=color:#888>(本地真实IP，已绕过代理)</span>';
           pc.close();
         }
@@ -1476,8 +1470,9 @@ var running=false,results=[],selected=new Set();
     pc.createOffer().then(function(s){pc.setLocalDescription(s)});
   }catch(e){}
   setTimeout(function(){
-    if(document.getElementById("myip").textContent.indexOf(".") < 0){
-      // fallback: use external API
+    var cur = document.getElementById("myip").textContent;
+    if(cur.indexOf(".") < 0 || cur.indexOf("检测中") >= 0 || cur.indexOf("local") >= 0 || cur.indexOf("localhost") >= 0){
+      // fallback: use external API (prefer IPv4)
       fetch("https://api.ipify.org?format=json").then(function(r){return r.json()}).then(function(d){
         document.getElementById("myip").innerHTML = (d.ip||"无法检测") + ' <span style=color:#888>(通过外部API)</span>';
       }).catch(function(){
