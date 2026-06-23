@@ -308,15 +308,13 @@ write_sing_box_config() {
         "timestamp": true
       },
       "inbounds": ($inbounds | map(. += {
-        "listen_options": {
-          "tcp_keep_alive_idle": "30s",
-          "tcp_keep_alive_interval": "10s",
-          "tcp_keep_alive_count": 3,
-          "tcp_fast_open": true,
-          "tcp_multi_path": false,
-          "udp_fragment": true,
-          "udp_timeout": "120s"
-        }
+        "tcp_keep_alive": "30s",
+        "tcp_keep_alive_interval": "10s",
+        "tcp_keep_alive_count": 3,
+        "tcp_fast_open": true,
+        "tcp_multi_path": false,
+        "udp_fragment": true,
+        "udp_timeout": "120s"
       })),
       "outbounds": [
         {
@@ -1186,25 +1184,29 @@ prompt_argo_tunnel_config() {
 
   echo
   echo "Argo 隧道模式："
-  echo "1) Cloudflare Named Tunnel（固定域名，推荐）"
-  echo "2) Quick Tunnel（免账号，trycloudflare.com 重启可能变化）"
+  echo "1) Quick Tunnel（免账号，trycloudflare.com 重启可能变化）"
+  echo "2) Cloudflare Named Tunnel（固定域名，推荐）"
   read -r -p "请选择 [默认: 1]: " choice
   choice="${choice:-1}"
 
   case "$choice" in
-    2)
+    1|"")
       ARGO_TUNNEL_MODE="quick"
       ARGO_FIXED_DOMAIN=""
       ARGO_TUNNEL_TOKEN=""
       ARGO_DOMAIN=""
       return 0
       ;;
-    1|"")
+    2)
       ARGO_TUNNEL_MODE="named"
       ;;
     *)
-      yellow "无效选项，按固定 Named Tunnel 处理。"
-      ARGO_TUNNEL_MODE="named"
+      yellow "无效选项，按 Quick Tunnel 处理。"
+      ARGO_TUNNEL_MODE="quick"
+      ARGO_FIXED_DOMAIN=""
+      ARGO_TUNNEL_TOKEN=""
+      ARGO_DOMAIN=""
+      return 0
       ;;
   esac
 
