@@ -1383,7 +1383,7 @@ uninstall_all() {
 
 generate_speedtest_html() {
   mkdir -p /etc/sing-box/node-info
-  SPEED_IP="$(curl -4fsS --connect-timeout 5 --max-time 15 https://api.ipify.org 2>/dev/null || curl -4fsS --connect-timeout 5 --max-time 15 https://ipv4.icanhazip.com 2>/dev/null || echo '获取IP失败')"
+  SPEED_IP="$(curl -4fsS --connect-timeout 5 --max-time 15 https://api.ipify.org 2>/dev/null || curl -4fsS --connect-timeout 5 --max-time 15 https://ipv4.icanhazip.com 2>/dev/null || echo 'get IP failed')"
   SPEED_PORT="$(shuf -i 50000-60000 -n 1 2>/dev/null || echo '58888')"
   while port_in_use "$SPEED_PORT" 2>/dev/null; do SPEED_PORT="$(shuf -i 50000-60000 -n 1 2>/dev/null || echo '58888')"; done
   export SPEED_PORT
@@ -1394,10 +1394,10 @@ generate_speedtest_html() {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CF优选域名本地测速</title>
+<title>CF Domain Speed Test</title>
 <style>
 :root{color-scheme:light}
-body{font-family:system-ui,sans-serif;background:#f5f5f5;margin:0;padding:20px}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f5;margin:0;padding:20px}
 .container{max-width:800px;margin:0 auto}
 h1{font-size:24px;margin:0 0 10px}
 .info{color:#666;margin:0 0 8px;font-size:13px}
@@ -1418,50 +1418,54 @@ tr:hover{background:#f0f7ff}
 </head>
 <body>
 <div class="container">
-<h1>Cloudflare 优选域名本地测速</h1>
-<p class="info">你的浏览器出口IP: <strong id="myip">检测中...</strong></p>
-<div class="warn"><strong>⚠️ 提示：</strong>如果使用了代理/VPN，测速的是代理服务器的延迟。建议<strong>关闭代理后</strong>测试真实本地延迟。</div>
+<h1>Cloudflare Preferred Domain Speed Test</h1>
+<p class="info">Your IP: <strong id="myip">detecting...</strong></p>
+<div class="warn"><strong>Note:</strong> If using proxy/VPN, test measures proxy latency. Close proxy for real local latency.</div>
+<div id="ipv6-notice" class="warn" style="display:none;background:#d1ecf1"><strong>IPv6 detected:</strong> CF domain optimization has minimal effect for IPv6 users. Close page and return to terminal.</div>
 <div class="rec">
-<strong>运营商推荐：</strong><br>
-电信 → visa.cn / shopify.com / cf.877774.xyz<br>
-联通 → cloudflare-dl.byoip.top / saas.sin.fan<br>
-移动 → bestcf.030101.xyz / cf.090227.xyz<br>
-不确定 → www.visa.cn（国内CDN质量最高）
+<strong>ISP recommendations:</strong><br>
+Telecom - visa.cn / shopify.com / cf.877774.xyz<br>
+Unicom - cloudflare-dl.byoip.top / saas.sin.fan<br>
+Mobile - bestcf.030101.xyz / cf.090227.xyz<br>
+Unknown - www.visa.cn (best domestic CDN)
 </div>
-<button class="btn" onclick="startTest()">开始测速（共30个域名）</button>
-<button class="btn" onclick="stopTest()">停止</button>
-<button class="btn" onclick="submitDomains()" style="background:#4caf50">提交选中域名到VPS</button>
-<p class="result" id="status">点击「开始测速」按钮开始</p>
+<button class="btn" onclick="startTest()">Start Test (30 domains)</button>
+<button class="btn" onclick="stopTest()">Stop</button>
+<button class="btn" onclick="submitDomains()" style="background:#4caf50">Submit Selected to VPS</button>
+<p class="result" id="status">Click "Start Test" to begin</p>
 <table id="results">
-<thead><tr><th>#</th><th>域名</th><th>备注</th><th>延迟 (ms)</th><th>选择</th></tr></thead>
+<thead><tr><th>#</th><th>Domain</th><th>Note</th><th>Latency (ms)</th><th>Select</th></tr></thead>
 <tbody id="tbody"></tbody>
 </table>
 </div>
 <script>
 var domains=[
-{d:"www.visa.cn",n:"Visa中国"},{d:"www.shopify.com",n:"Shopify官方"},{d:"www.apple.com",n:"Apple官方"},
-{d:"www.bing.com",n:"微软Bing"},{d:"www.cloudflare.com",n:"Cloudflare自家"},{d:"arxiv.org",n:"Cornell学术"},
-{d:"dl.acm.org",n:"ACM计算机协会"},{d:"www.semanticscholar.org",n:"AI2研究所"},{d:"www.sciencedirect.com",n:"Elsevier科学"},
-{d:"www.nature.com",n:"Nature期刊"},{d:"www.ieee.org",n:"IEEE学会"},{d:"time.is",n:"官方时间"},
-{d:"mfa.gov.ua",n:"乌克兰外交部"},{d:"store.ubi.com",n:"Ubisoft育碧"},{d:"staticdelivery.nexusmods.com",n:"NexusMods"},
-{d:"icook.hk",n:"香港美食"},{d:"icook.tw",n:"台湾美食"},{d:"cloudflare-dl.byoip.top",n:"NB优选"},
-{d:"cf.877774.xyz",n:"秋名山维护"},{d:"saas.sin.fan",n:"MIYU维护"},{d:"bestcf.030101.xyz",n:"Mingyu移动优化"},
-{d:"cf.090227.xyz",n:"CM维护三网优选"},{d:"cdn.2020111.xyz",n:"收集自网络"},{d:"cdns.doon.eu.org",n:"收集自网络"},
-{d:"cf.0sm.com",n:"收集自网络"},{d:"cf.900501.xyz",n:"收集自网络"},{d:"cfip.1323123.xyz",n:"收集自网络"},
-{d:"cfip.cfcdn.vip",n:"收集自网络"},{d:"cloudflare-ip.mofashi.ltd",n:"收集自网络"},{d:"fn.130519.xyz",n:"收集自网络"}
+{d:"www.visa.cn",n:"Visa China"},{d:"www.shopify.com",n:"Shopify"},{d:"www.apple.com",n:"Apple"},
+{d:"www.bing.com",n:"MS Bing"},{d:"www.cloudflare.com",n:"Cloudflare"},{d:"arxiv.org",n:"Cornell"},
+{d:"dl.acm.org",n:"ACM"},{d:"www.semanticscholar.org",n:"AI2"},{d:"www.sciencedirect.com",n:"Elsevier"},
+{d:"www.nature.com",n:"Nature"},{d:"www.ieee.org",n:"IEEE"},{d:"time.is",n:"time.is"},
+{d:"mfa.gov.ua",n:"MFA Ukraine"},{d:"store.ubi.com",n:"Ubisoft"},{d:"staticdelivery.nexusmods.com",n:"NexusMods"},
+{d:"icook.hk",n:"icook HK"},{d:"icook.tw",n:"icook TW"},{d:"cloudflare-dl.byoip.top",n:"NB preferred"},
+{d:"cf.877774.xyz",n:"QMS"},{d:"saas.sin.fan",n:"MIYU"},{d:"bestcf.030101.xyz",n:"Mingyu mobile"},
+{d:"cf.090227.xyz",n:"CM maintained"},{d:"cdn.2020111.xyz",n:"cdn.2020111"},{d:"cdns.doon.eu.org",n:"cdns.doon"},
+{d:"cf.0sm.com",n:"cf.0sm"},{d:"cf.900501.xyz",n:"cf.900501"},{d:"cfip.1323123.xyz",n:"cfip.1323123"},
+{d:"cfip.cfcdn.vip",n:"cfip.cfcdn"},{d:"cloudflare-ip.mofashi.ltd",n:"mofashi"},{d:"fn.130519.xyz",n:"fn.130519"}
 ];
-var running=false,results=[],selected=new Set();
+var running=false,results=[],selected=new Set(),CONCURRENCY=15;
 
-// Detect real IP - try multiple methods
 (function(){
   var ipDisplayed = false;
   function showIP(ip, via){
     if(ipDisplayed) return;
     ipDisplayed = true;
-    document.getElementById("myip").innerHTML = ip + ' <span style=color:#888>(' + via + ')</span>';
+    var el = document.getElementById("myip");
+    if(ip.indexOf(":") >= 0){
+      el.innerHTML = ip + ' <span style=color:#888>(' + via + ', IPv6)</span>';
+      document.getElementById("ipv6-notice").style.display = "block";
+    } else {
+      el.innerHTML = ip + ' <span style=color:#888>(' + via + ')</span>';
+    }
   }
-
-  // Method 1: WebRTC (bypasses proxy)
   try{
     var pc = new (window.RTCPeerConnection||window.webkitRTCPeerConnection)({iceServers:[]});
     pc.createDataChannel("");
@@ -1470,8 +1474,8 @@ var running=false,results=[],selected=new Set();
         var parts = e.candidate.candidate.split(" ");
         if(parts.length >= 5){
           var ip = parts[4];
-          if(ip && ip.indexOf(".")>=0 && !ip.startsWith("192.168.") && !ip.startsWith("10.") && !ip.startsWith("172.1") && !ip.startsWith("0.") && !ip.startsWith("127.")){
-            showIP(ip, "本地IP，已绕过代理");
+          if(ip && !ip.startsWith("192.168.") && !ip.startsWith("10.") && !ip.startsWith("172.1") && !ip.startsWith("0.") && !ip.startsWith("127.") && !ip.startsWith("fe80:") && !ip.startsWith("fc") && !ip.startsWith("fd") && ip.indexOf(".local") < 0){
+            showIP(ip, "local IP, bypassed proxy");
             pc.close();
           }
         }
@@ -1479,49 +1483,72 @@ var running=false,results=[],selected=new Set();
     };
     pc.createOffer().then(function(s){pc.setLocalDescription(s)});
   }catch(e){}
-
-  // Method 2: IPv4 API fallback
   var ipDone = false;
-  function fallback(){
+  function multiFallback(){
     if(ipDone) return;
     ipDone = true;
     var timedOut = false;
-    var t = setTimeout(function(){ timedOut = true; }, 3000);
-    fetch("https://api.ipify.org?format=json", {mode: "cors"}).then(function(r){return r.json()}).then(function(d){
-      if(d && d.ip && !timedOut){ showIP(d.ip, "通过外部API"); }
+    var t = setTimeout(function(){ timedOut = true; }, 5000);
+    function extractIp(resp){ if(resp && resp.ip) return resp.ip; if(typeof resp === "string" && resp.trim()) return resp.trim(); return null; }
+    Promise.any([
+      fetch("https://api.ipify.org?format=json", {mode: "cors"}).then(function(r){return r.json()}),
+      fetch("https://ipv4.icanhazip.com/", {mode: "cors"}).then(function(r){return r.text()}),
+      fetch("https://api.ip.sb/geoip", {mode: "cors"}).then(function(r){return r.json()}),
+      fetch("https://api6.ipify.org?format=json", {mode: "cors"}).then(function(r){return r.json()})
+    ]).then(function(result){
+      if(!timedOut){ var ip = extractIp(result); if(ip) showIP(ip, "via external API"); }
     }).catch(function(){
-      if(!timedOut){ showIP("无法获取", "API不可达"); }
+      if(!timedOut){
+        fetch("/myip", {mode: "cors"}).then(function(r){return r.text()}).then(function(ip){
+          if(ip && ip.trim() && !timedOut) showIP(ip.trim(), "detected by VPS");
+        }).catch(function(){
+          if(!timedOut) showIP("unavailable", "all methods failed");
+        });
+      }
     }).finally(function(){ clearTimeout(t); });
   }
-
-  setTimeout(function(){
-    if(!ipDisplayed){ fallback(); }
-  }, 2000);
-
-  setTimeout(function(){
-    if(!ipDisplayed){
-      document.getElementById("myip").innerHTML = '无法检测 <span style=color:#888>（浏览器限制）</span>';
-    }
-  }, 5000);
+  setTimeout(function(){ if(!ipDisplayed) multiFallback(); }, 2000);
+  setTimeout(function(){ if(!ipDisplayed) document.getElementById("myip").innerHTML = 'failed <span style=color:#888>(browser restriction)</span>'; }, 7000);
 })();
 
 function init(){var t=document.getElementById("tbody");t.innerHTML="";domains.forEach(function(d,i){var r=document.createElement("tr");r.id="row-"+i;r.innerHTML="<td>"+(i+1)+"</td><td>"+d.d+"</td><td>"+d.n+"</td><td id=lat-"+i+"><span class='bar wait' style=width:60px></span></td><td><input type=checkbox id=chk-"+i+" onchange=toggle("+i+")></td>";t.appendChild(r)})}
 function toggle(i){var c=document.getElementById("chk-"+i);c.checked?selected.add(i):selected.delete(i);updateSel()}
-function updateSel(){var s=[...selected].sort((a,b)=>a-b).map(i=>domains[i].d);document.getElementById("status").textContent=s.length?"已选: "+s.join(", "):"勾选延迟最低的域名"}
-function testOne(i){if(!running)return;var d=domains[i],s=performance.now();return new Promise(r=>{var img=new Image(),t=setTimeout(()=>{img.src="";var e=Math.round(performance.now()-s);results[i]=e>=5000?9999:e;updateRow(i);r()},6000);img.onload=img.onerror=()=>{clearTimeout(t);var e=Math.round(performance.now()-s);results[i]=e>=5000?9999:e;updateRow(i);r()};img.src="https://"+d.d+"/favicon.ico?"+Math.random()})}
-function updateRow(i){var m=results[i],t=document.getElementById("lat-"+i),c=m<200?"fast":m<500?"mid":"slow",w=Math.min(200,Math.max(10,m));t.innerHTML="<span class='bar "+c+"' style=width:"+w+"px></span> "+m+" ms"}
-async function startTest(){running=true;results=[];selected.clear();init();document.getElementById("status").textContent="测速中...";for(var i=0;i<domains.length&&running;i++){document.getElementById("row-"+i).scrollIntoView({block:"center"});await testOne(i);await new Promise(r=>setTimeout(r,150))}if(running){var sorted=results.map((r,i)=>({r,i})).filter(x=>x.r<9000).sort((a,b)=>a.r-b.r);selected.clear();sorted.slice(0,5).forEach(x=>{selected.add(x.i);document.getElementById("chk-"+x.i).checked=true});updateSel();document.getElementById("status").textContent="测速完成！已自动选最快的5个。勾选后点提交";running=false}}
+function updateSel(){var s=[...selected].sort((a,b)=>a-b).map(i=>domains[i].d);document.getElementById("status").textContent=s.length?"selected: "+s.join(", "):"check the fastest domains"}
+function pingOnce(d){return new Promise(function(resolve){var s=performance.now();var c=new AbortController();var to=setTimeout(function(){c.abort();resolve(9999)},5000);fetch("https://"+d+"/favicon.ico?"+Math.random(),{mode:"no-cors",cache:"no-cache",signal:c.signal}).then(function(){clearTimeout(to);resolve(Math.round(performance.now()-s))}).catch(function(){clearTimeout(to);if(performance.now()-s<4900){resolve(Math.round(performance.now()-s))}else{resolve(9999)}})})}
+function testOne(i){if(!running)return;var d=domains[i];return Promise.all([pingOnce(d.d),pingOnce(d.d),pingOnce(d.d)]).then(function(ms){results[i]=Math.min.apply(null,ms);updateRow(i)})}
+function updateRow(i){var m=results[i],t=document.getElementById("lat-"+i),c=m<200?"fast":m<500?"mid":"slow",w=m<200?m:200+(m-200)/3;c=m>=5000?"slow":c;t.innerHTML="<span class='bar "+c+"' style=width:"+Math.min(w,300)+"px></span> "+(m>=9999?"timeout":m+" ms")}
+async function startTest(){
+  running=true;results=[];selected.clear();
+  init();
+  var statusEl=document.getElementById("status");
+  statusEl.textContent="testing... (concurrency "+CONCURRENCY+")";
+  for(var i=0;i<domains.length&&running;i+=CONCURRENCY){
+    var batch=[];
+    for(var j=i;j<Math.min(i+CONCURRENCY,domains.length)&&running;j++){
+      (function(idx){batch.push(testOne(idx));})(j);
+    }
+    await Promise.all(batch);
+  }
+  if(running){
+    var sorted=results.map(function(r,i){return{r:i}}).filter(function(x){return x.r<9000}).sort(function(a,b){return a.r-b.r});
+    selected.clear();
+    sorted.slice(0,5).forEach(function(x){selected.add(x.i);document.getElementById("chk-"+x.i).checked=true});
+    updateSel();
+    statusEl.textContent="done! fastest 5 auto-selected. submit to VPS.";
+    running=false;
+  }
+}
 function submitDomains(){
   var sel=[...selected].sort((a,b)=>a-b).map(i=>domains[i].d);
-  if(sel.length===0){alert("请先勾选域名");return}
-  document.getElementById("status").textContent="提交中...";
+  if(sel.length===0){alert("select domains first");return}
+  document.getElementById("status").textContent="submitting...";
   fetch("/submit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({domains:sel})})
-  .then(r=>r.json()).then(d=>{
-    var ipInfo = d.client_ip ? "VPS看到的你: " + d.client_ip + "<br>" : "";
-    document.getElementById("status").innerHTML="<span style='color:#4caf50'>✓ 已提交 "+d.count+" 个域名到VPS:<br>"+d.domains.join(", ")+"</span><br>"+ipInfo+"<span style='color:#888'>可关闭此页面，回到终端继续</span>";
-  }).catch(e=>{document.getElementById("status").innerHTML="<span style='color:red'>提交失败</span>，请确认VPS测速服务仍在运行";});
+  .then(function(r){return r.json()}).then(function(d){
+    var ipInfo = d.client_ip ? "VPS sees you as: " + d.client_ip + "<br>" : "";
+    document.getElementById("status").innerHTML="<span style='color:#4caf50'>submitted "+d.count+" domains:<br>"+d.domains.join(", ")+"</span><br>"+ipInfo+"<span style='color:#888'>close page, return to terminal</span>";
+  }).catch(function(e){document.getElementById("status").innerHTML="<span style='color:red'>submit failed</span>, check VPS server";});
 }
-function stopTest(){running=false;document.getElementById("status").textContent="已停止"}
+function stopTest(){running=false;document.getElementById("status").textContent="stopped"}
 init();
 </script>
 </body>
@@ -1529,23 +1556,30 @@ init();
 SPDT_EOF
 
   echo
-  cyan "--- 本地浏览器测速 ---"
-  echo "请在浏览器打开以下链接（关闭代理后测试更准确）："
+  cyan "--- local browser speed test ---"
+  echo "open in browser (disable proxy for accurate results):"
   echo ""
-  echo "  http://${SPEED_IP:-获取IP失败}:${SPEED_PORT:-58888}/speedtest.html"
+  echo "  http://${SPEED_IP:-get IP failed}:${SPEED_PORT:-58888}/speedtest.html"
   echo ""
-  yellow "测的是你本地→CF各域名的延迟，这才是CDN节点真实的用户侧速度"
-  echo "测完后勾选最快的域名，点「提交选中域名到VPS」"
-  echo "(服务60秒后自动关闭)"
+  yellow "measures YOUR latency to CF domains. select fastest and submit."
+  echo "(server auto-stops after 60s)"
   echo ""
 
-  # Start server that handles POST /submit
   (cd /etc/sing-box/node-info && SPEED_PORT="${SPEED_PORT}" python3 << 'SRVEOF' &
 import http.server, json, os, datetime
 PORT = int(os.environ.get("SPEED_PORT","8888"))
 SAVE = "/etc/sing-box/node-info/selected_domains.txt"
 
 class H(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/myip":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(self.client_address[0].encode("utf-8"))
+            return
+        super().do_GET()
     def do_POST(self):
         if self.path != "/submit":
             self.send_error(404)
@@ -1576,7 +1610,7 @@ class H(http.server.SimpleHTTPRequestHandler):
 srv = http.server.HTTPServer(("0.0.0.0", PORT), H)
 srv.timeout = 60
 try:
-    print(f"Speedtest server on port {PORT}")
+    print("Speedtest server on port %d" % PORT)
     srv.serve_forever()
 except:
     pass
