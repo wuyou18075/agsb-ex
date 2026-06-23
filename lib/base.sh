@@ -546,6 +546,8 @@ save_state() {
       printf 'ARGO_TUNNEL_TOKEN=%q\n' "$ARGO_TUNNEL_TOKEN"
       printf 'ARGO_PROTOCOL=%q\n' "$ARGO_PROTOCOL"
       printf 'ARGO_EDGE_IP_VERSION=%q\n' "$ARGO_EDGE_IP_VERSION"
+      printf 'ARGO_EDGE_SERVER=%q\n' "$ARGO_EDGE_SERVER"
+      printf 'ARGO_MULTI_EDGE=%q\n' "${ARGO_MULTI_EDGE:-0}"
       printf 'TUIC_ENABLED=%q\n' "$TUIC_ENABLED"
       printf 'TUIC_PORT=%q\n' "$TUIC_PORT"
       printf 'TUIC_PASSWORD=%q\n' "$TUIC_PASSWORD"

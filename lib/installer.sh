@@ -1792,6 +1792,16 @@ uninstall_singbox_only() {
 
 select_argo_edge_server() {
   load_state || true
+  if [[ -n "${ARGO_EDGE_SERVER:-}" && "${ARGO_MULTI_EDGE:-}" == "1" ]]; then
+    local yn
+    echo
+    cyan "已保存优选域名: ${ARGO_EDGE_SERVER}"
+    read -r -p "重新选择？[y/N]: " yn
+    if [[ -z "$yn" || ! "$yn" =~ ^[Yy]$ ]]; then
+      green "保持当前优选域名"
+      return 0
+    fi
+  fi
   local edge_choice
   local -a argo_all_domains=(
     "*.cf.090227.xyz#三网优选，CM维护（泛域名）"
