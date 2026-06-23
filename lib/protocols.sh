@@ -345,8 +345,15 @@ generate_subscription_path() {
 }
 
 subscription_url() {
-  if [[ -n "${DOMAIN:-}" && -n "${SUB_PORT:-}" && -n "${SUB_PATH:-}" ]]; then
-    printf 'https://%s:%s/%s' "$DOMAIN" "$SUB_PORT" "$SUB_PATH"
+  local addr=""
+  if [[ -n "${DOMAIN:-}" ]]; then
+    addr="$DOMAIN"
+  else
+    addr="$(preferred_direct_server_addr 2>/dev/null || curl -s --connect-timeout 3 https://ip.sb 2>/dev/null || true)"
+    [[ -n "$addr" ]] || return 1
+  fi
+  if [[ -n "${SUB_PORT:-}" && -n "${SUB_PATH:-}" ]]; then
+    printf 'https://%s:%s/%s' "$addr" "$SUB_PORT" "$SUB_PATH"
   fi
 }
 
@@ -365,6 +372,7 @@ print_subscription_links() {
   echo "Shadowrocket: ${sub_url}?target=shadowrocket-full"
   echo "v2rayN / Base64: ${sub_url}?target=v2rayn"
   echo "Raw URI: ${sub_url}?target=raw"
+  echo "All(所有协议URI): ${sub_url}/all"
 }
 
 anytls_uri() {
@@ -711,6 +719,17 @@ show_node_info() {
       printf "\n" >> "$out_file"
     fi
   fi
+
+  if has_tuic_install; then
+    cycle_argo_edge_server
+    if [[ -f /etc/sing-box/node-info/tuic5-subscription-raw.txt ]]; then
+      sed /^[[:space:]]*$/d /etc/sing-box/node-info/tuic5-subscription-raw.txt >> "$out_file"
+    else
+      tuic_uri >> "$out_file"
+      printf "\n" >> "$out_file"
+    fi
+  fi
+
   if has_argo_install; then
     cycle_argo_edge_server
     ensure_argo_quick_service
@@ -752,6 +771,14 @@ show_node_info() {
     echo
   fi
 
+  if has_tuic_install; then
+    echo "[TUIC v5 URL]"
+    if [[ -f /etc/sing-box/node-info/tuic5-subscription-raw.txt ]]; then
+      sed -n '1p' /etc/sing-box/node-info/tuic5-subscription-raw.txt
+    fi
+    echo
+  fi
+
   if has_argo_install; then
     echo "[Argo / Cloudflare Tunnel URL]"
     if [[ -f "$ARGO_SUB_RAW_TXT" ]]; then
@@ -779,7 +806,7 @@ show_node_info() {
     echo
   fi
 
-  if ! has_vless_install && ! has_hy2_install && ! has_anytls_install && ! has_ss2022_install && ! has_argo_install; then
+  if ! has_vless_install && ! has_hy2_install && ! has_anytls_install && ! has_ss2022_install && ! has_tuic_install && ! has_vmess_install && ! has_argo_install; then
     yellow "未检测到可展示的协议配置"
   fi
 

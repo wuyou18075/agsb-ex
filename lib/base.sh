@@ -555,6 +555,7 @@ save_state() {
       printf 'TUIC_ENABLED=%q\n' "$TUIC_ENABLED"
       printf 'TUIC_PORT=%q\n' "$TUIC_PORT"
       printf 'TUIC_PASSWORD=%q\n' "$TUIC_PASSWORD"
+      printf 'TUIC_SERVER_ADDR=%q\n' "$TUIC_SERVER_ADDR"
       printf 'TUIC_TLS_SNI=%q\n' "$TUIC_TLS_SNI"
       printf 'NODE_PREFIX=%q\n' "$NODE_PREFIX"
       printf 'SELF_SIGN_CERT=%q\n' "${SELF_SIGN_CERT:-0}"

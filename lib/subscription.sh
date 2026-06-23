@@ -60,6 +60,18 @@ write_uri_subscription_raw() {
       printf "\n" >> "$out_file"
     fi
   fi
+
+  if has_tuic_install; then
+    cycle_argo_edge_server
+    build_tuic_share_files
+    if [[ -f /etc/sing-box/node-info/tuic5-subscription-raw.txt ]]; then
+      sed /^[[:space:]]*$/d /etc/sing-box/node-info/tuic5-subscription-raw.txt >> "$out_file"
+    else
+      tuic_uri >> "$out_file"
+      printf "\n" >> "$out_file"
+    fi
+  fi
+
   if has_argo_install; then
     ensure_argo_quick_service
     resolve_argo_domain "0" || true
@@ -391,6 +403,7 @@ build_subscription_index_html() {
     <a href="${url}?target=shadowrocket-full">Shadowrocket Base64</a>
     <a href="${url}?target=v2rayn">v2rayN / Base64 URI</a>
     <a href="${url}?target=raw">Raw URI</a>
+    <a href="${url}/all">All / 所有协议 URI（v2rayN 格式）</a>
   </main>
 </body>
 </html>
@@ -422,6 +435,7 @@ TARGETS = {
     "clash-stable": ("clash-stable.yaml", "text/yaml; charset=utf-8"),
     "mihomo-stable": ("clash-stable.yaml", "text/yaml; charset=utf-8"),
     "raw": ("raw.txt", "text/plain; charset=utf-8"),
+    "all": ("raw.txt", "text/plain; charset=utf-8"),
     "base64": ("base64.txt", "text/plain; charset=utf-8"),
     "v2rayn": ("base64.txt", "text/plain; charset=utf-8"),
     "shadowrocket": ("base64.txt", "text/plain; charset=utf-8"),
@@ -462,7 +476,8 @@ class SubscriptionHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlsplit(self.path)
         normalized_path = parsed.path.strip("/")
-        if normalized_path != self.sub_path:
+        is_all = normalized_path.endswith("/all") and normalized_path[:-4] == self.sub_path
+        if normalized_path != self.sub_path and not is_all:
             self.send_error(404)
             return
 
@@ -470,10 +485,13 @@ class SubscriptionHandler(http.server.BaseHTTPRequestHandler):
 
         query = urllib.parse.parse_qs(parsed.query)
         target = (query.get("target", [""])[0] or "").lower()
-        if not target:
+        if is_all:
+            filename, content_type = TARGETS["raw"]
+        elif not target:
             target = self.detect_target()
-
-        filename, content_type = TARGETS.get(target, TARGETS["base64"])
+            filename, content_type = TARGETS.get(target, TARGETS["base64"])
+        else:
+            filename, content_type = TARGETS.get(target, TARGETS["base64"])
         file_path = self.root / filename
         if target in ("clash", "clash-verge", "clash-compatible") and not file_path.is_file():
             filename, content_type = TARGETS["clash-full"]
