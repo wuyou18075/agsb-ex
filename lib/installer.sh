@@ -860,16 +860,13 @@ prompt_install_profile() {
 
   cat <<'EOF'
 ========================================
- 五合一协议安装：Vless-vision / Vmess-ws(tls)+Argo / Hy2 / Tuic-v5 / Anytls
+ 全协议安装（直连 + CDN 双版本）
 ========================================
 1) 全部安装（推荐，回车默认）
 2) 自定义安装
+3) 直连协议（仅直连协议全部安装）
+4) CDN 协议（仅 CDN 协议全部安装）
 0) 返回
-  1) Vless-reality-vision
-  2) Vmess-ws(tls)+Argo
-  3) Hysteria-2
-  4) Tuic-v5
-  5) Anytls
 ========================================
 EOF
   read -r -p "请选择 [默认: 1]: " choice
@@ -884,10 +881,32 @@ EOF
     INSTALL_WANT_ANYTLS="1"
     INSTALL_WANT_ARGO="1"
     INSTALL_WANT_TUIC="1"
+    INSTALL_WANT_SS2022="1"
     return
     ;;
   2)
-    read -r -p "请输入协议序号（逗号分隔，如 1,3,5）: " choice
+    cat <<'EOF2'
+
+直连协议（不套 CDN，速度快但看线路）：
+  a1) Vless-reality-vision（REALITY伪装）
+  a2) Vless-WS-TLS
+  a3) Vmess-WS-TLS
+  a4) Trojan-WS-TLS
+  a5) Shadowsocks-WS-TLS
+  a6) Hysteria-2（UDP）
+  a7) Tuic-v5（UDP）
+  a8) Anytls（TCP）
+
+CDN 协议（套 Cloudflare，延迟低稳）：
+  b1) Vless-WS-TLS-CDN
+  b2) Vmess-WS-TLS-CDN
+  b3) Trojan-WS-TLS-CDN
+  b4) Shadowsocks-WS-TLS-CDN
+  b5) Argo-Vless-CDN（免域名，Cloudflare Tunnel）
+
+========================================
+EOF2
+    read -r -p "请输入协议编号（逗号分隔，如 a1,a3,b2,b5）: " choice
     choice="${choice//，/,}"
     choice="${choice//,/ }"
     for token in $choice; do
@@ -895,14 +914,36 @@ EOF
       token="${token%,}"
       [[ -z "$token" ]] && continue
       case "$token" in
-      1) INSTALL_WANT_VLESS="1" ;;
-      2) INSTALL_WANT_VMESS="1"; INSTALL_WANT_ARGO="1" ;;
-      3) INSTALL_WANT_HY2="1" ;;
-      4) INSTALL_WANT_TUIC="1" ;;
-      5) INSTALL_WANT_ANYTLS="1" ;;
+      a1) INSTALL_WANT_VLESS="1" ;;
+      a2) yellow "Vless-WS-TLS 暂未实现，跳过" ;;
+      a3) INSTALL_WANT_VMESS="1" ;;
+      a4) yellow "Trojan-WS-TLS 暂未实现，跳过" ;;
+      a5) INSTALL_WANT_SS2022="1" ;;
+      a6) INSTALL_WANT_HY2="1" ;;
+      a7) INSTALL_WANT_TUIC="1" ;;
+      a8) INSTALL_WANT_ANYTLS="1" ;;
+      b1) yellow "Vless-WS-TLS-CDN 暂未实现，跳过" ;;
+      b2) INSTALL_WANT_VMESS="1"; INSTALL_WANT_ARGO="1" ;;
+      b3) yellow "Trojan-WS-TLS-CDN 暂未实现，跳过" ;;
+      b4) INSTALL_WANT_SS2022="1"; INSTALL_WANT_ARGO="1" ;;
+      b5) INSTALL_WANT_ARGO="1" ;;
       *) yellow "忽略未知协议: $token" ;;
       esac
     done
+    ;;
+  3)
+    INSTALL_WANT_VLESS="1"
+    INSTALL_WANT_VMESS="1"
+    INSTALL_WANT_HY2="1"
+    INSTALL_WANT_ANYTLS="1"
+    INSTALL_WANT_TUIC="1"
+    INSTALL_WANT_SS2022="1"
+    green "将安装全部直连协议"
+    ;;
+  4)
+    INSTALL_WANT_ARGO="1"
+    INSTALL_WANT_VMESS="1"
+    green "将安装全部 CDN 协议"
     ;;
   *)
     yellow "无效，默认全部安装"
@@ -912,6 +953,7 @@ EOF
     INSTALL_WANT_ANYTLS="1"
     INSTALL_WANT_ARGO="1"
     INSTALL_WANT_TUIC="1"
+    INSTALL_WANT_SS2022="1"
     ;;
   esac
 }
@@ -936,75 +978,114 @@ full_install() {
   cert_mode="${cert_mode:-1}"
 
   if [[ "$cert_mode" == "1" ]]; then
+    # 自签证书模式
     SELF_SIGN_CERT="1"
-    # 自签模式：选伪装域名
-    local -a reality_domains=(
-      "www.cloudflare.com#1位·CF自家边缘节点最多"
-      "www.bing.com#2位·微软搜索全球验证最久"
-      "www.apple.com#3位·Apple企业CDN延迟极低"
-      "arxiv.org#4位·Cornell学术预印本Cloudflare"
-      "dl.acm.org#5位·ACM计算机协会Cloudflare"
-      "www.semanticscholar.org#6位·AI2研究所Cloudflare"
-      "www.shopify.com#7位·全球电商平台企业CDN"
-      "www.sciencedirect.com#8位·Elsevier科学期刊"
-      "www.ieee.org#9位·国际电气电子工程师学会"
-      "www.nature.com#10位·顶级科学期刊"
-    )
-    echo
-        echo
-    # 先测速（VPS → 伪装域名 TLS 握手延迟，即 REALITY 实际路径）
-    cyan "正在从 VPS 实测各伪装域名的 TLS 握手延迟..."
-    local i d note lat lat_ms
-    local -a reality_lats=()
-    for i in "${!reality_domains[@]}"; do
-      d="${reality_domains[$i]%%#*}"
-      note="${reality_domains[$i]#*#}"
-      printf "  测速 %s ... " "$d"
-      lat="$(curl -o /dev/null -sS --connect-timeout 5 --max-time 15 -w "%{time_total}" "https://${d}/" 2>/dev/null || echo "999")"
-      lat_ms="$(awk -v t="$lat" 'BEGIN {printf "%d", t*1000}' 2>/dev/null)"
-      echo "${lat_ms} ms"
-      reality_lats+=("$lat_ms")
-    done
 
-    # 找最低延迟
-    local best_rt_idx=0 best_rt_ms=999999
-    for i in "${!reality_lats[@]}"; do
-      if (( ${reality_lats[$i]} < best_rt_ms )); then
-        best_rt_ms="${reality_lats[$i]}"
-        best_rt_idx="$i"
+    # 尝试读取上次安装配置
+    if load_state && [[ "${SELF_SIGN_CERT:-0}" == "1" && -n "${DOMAIN:-}" ]]; then
+      echo
+      yellow "检测到上次自签证书安装配置："
+      echo "  伪装域名: ${DOMAIN}"
+      echo "  节点前缀: ${NODE_PREFIX:-（无）}"
+      echo "  已选协议:$( [[ ${HY2_ENABLED:-0} == 1 ]] && echo -n ' Hysteria2'; [[ ${ANYTLS_ENABLED:-0} == 1 ]] && echo -n ' AnyTLS'; [[ ${SS2022_ENABLED:-0} == 1 ]] && echo -n ' Shadowsocks'; [[ ${VMESS_ENABLED:-0} == 1 ]] && echo -n ' VMess'; [[ ${TUIC_ENABLED:-0} == 1 ]] && echo -n ' TUIC'; [[ ${ARGO_ENABLED:-0} == 1 ]] && echo -n ' Argo')"
+      read -r -p "是否采用上次配置重新安装？[y/N]: " use_prev
+      if [[ "$use_prev" =~ ^[Yy]$ ]]; then
+        green "采用上次配置，跳过配置选择"
+        UUID="$(cat /proc/sys/kernel/random/uuid)"
+        local bin
+        bin="$(sing_box_cmd 2>/dev/null || true)"
+        if [[ -n "$bin" ]]; then
+          local keys
+          keys="$("$bin" generate reality-keypair)"
+          PRIVATE_KEY="$(awk -F: 'tolower($1) ~ /private/ {v=$2; sub(/^[ \t]+/, "", v); sub(/[ \t]+$/, "", v); print v; exit}' <<<"$keys")"
+          PUBLIC_KEY="$(awk -F: 'tolower($1) ~ /public/ {v=$2; sub(/^[ \t]+/, "", v); sub(/[ \t]+$/, "", v); print v; exit}' <<<"$keys")"
+        fi
+        XHTTP_PATH=""
+        SHORT_ID="$(openssl rand -hex 8)"
       fi
-    done
-
-    echo
-    echo "序号  域名                             备注                              延迟"
-    echo "------------------------------------------------------------------"
-    for i in "${!reality_domains[@]}"; do
-      d="${reality_domains[$i]%%#*}"
-      note="${reality_domains[$i]#*#}"
-      local mark=""
-      if (( i == best_rt_idx )); then
-        mark=" $(green '← 最低')"
-      fi
-      printf " %2d)   %-32s %-32s %s ms%s\\n" "$((i+1))" "$d" "$note" "${reality_lats[$i]}" "$mark"
-    done
-    echo "  0) 返回"
-    echo "------------------------------------------------------------------"
-    echo "注：延迟为 VPS → 伪装域名 的 TLS 握手时间（REALITY 实际走的链路）"
-    read -r -p "请选择 [默认: $((best_rt_idx+1)) 最低延迟]: " reality_choice
-    reality_choice="${reality_choice:-$((best_rt_idx+1))}"
-    [[ "$reality_choice" == "0" ]] && return
-
-    local idx=$((reality_choice - 1))
-    if (( idx >= 0 && idx < ${#reality_domains[@]} )); then
-      REALITY_SNI="${reality_domains[$idx]%%#*}"
-      DOMAIN="$REALITY_SNI"
-    else
-      REALITY_SNI="www.cloudflare.com"
-      DOMAIN="$REALITY_SNI"
-      idx=0
     fi
 
-    green "已选择: ${REALITY_SNI}（VPS→伪装站 TLS 握手 ${reality_lats[$idx]} ms）"
+    # 用户选 n 或没有上次配置时：删缓存 → 输出测速页面 → 继续选伪装域名
+    if [[ "${use_prev:-}" != "Y" && "${use_prev:-}" != "y" ]]; then
+      # 清除旧的浏览器测速缓存
+      rm -f /etc/sing-box/node-info/selected_domains.txt
+
+      # 生成测速页面（输出 URL + 启动后端服务，含60秒等待时间供测试）
+      generate_speedtest_html
+      echo
+      yellow "请现在打开上方测速页面测试，60秒后继续后续安装流程"
+      yellow "也可稍后在 Argo 域名选择时输入 93 重新生成测速页面"
+      echo
+
+      # 自签模式：选伪装域名
+      local -a reality_domains=(
+        "www.cloudflare.com#1位·CF自家边缘节点最多"
+        "www.bing.com#2位·微软搜索全球验证最久"
+        "www.apple.com#3位·Apple企业CDN延迟极低"
+        "arxiv.org#4位·Cornell学术预印本Cloudflare"
+        "dl.acm.org#5位·ACM计算机协会Cloudflare"
+        "www.semanticscholar.org#6位·AI2研究所Cloudflare"
+        "www.shopify.com#7位·全球电商平台企业CDN"
+        "www.sciencedirect.com#8位·Elsevier科学期刊"
+        "www.ieee.org#9位·国际电气电子工程师学会"
+        "www.nature.com#10位·顶级科学期刊"
+      )
+      echo
+      echo
+      # 先测速（VPS → 伪装域名 TLS 握手延迟，即 REALITY 实际路径）
+      cyan "正在从 VPS 实测各伪装域名的 TLS 握手延迟..."
+      local i d note lat lat_ms
+      local -a reality_lats=()
+      for i in "${!reality_domains[@]}"; do
+        d="${reality_domains[$i]%%#*}"
+        note="${reality_domains[$i]#*#}"
+        printf "  测速 %s ... " "$d"
+        lat="$(curl -o /dev/null -sS --connect-timeout 5 --max-time 15 -w "%{time_total}" "https://${d}/" 2>/dev/null || echo "999")"
+        lat_ms="$(awk -v t="$lat" 'BEGIN {printf "%d", t*1000}' 2>/dev/null)"
+        echo "${lat_ms} ms"
+        reality_lats+=("$lat_ms")
+      done
+
+      # 找最低延迟
+      local best_rt_idx=0 best_rt_ms=999999
+      for i in "${!reality_lats[@]}"; do
+        if (( ${reality_lats[$i]} < best_rt_ms )); then
+          best_rt_ms="${reality_lats[$i]}"
+          best_rt_idx="$i"
+        fi
+      done
+
+      echo
+      echo "序号  域名                             备注                              延迟"
+      echo "------------------------------------------------------------------"
+      for i in "${!reality_domains[@]}"; do
+        d="${reality_domains[$i]%%#*}"
+        note="${reality_domains[$i]#*#}"
+        local mark=""
+        if (( i == best_rt_idx )); then
+          mark=" $(green '← 最低')"
+        fi
+        printf " %2d)   %-32s %-32s %s ms%s\\n" "$((i+1))" "$d" "$note" "${reality_lats[$i]}" "$mark"
+      done
+      echo "  0) 返回"
+      echo "------------------------------------------------------------------"
+      echo "注：延迟为 VPS → 伪装域名 的 TLS 握手时间（REALITY 实际走的链路）"
+      read -r -p "请选择 [默认: $((best_rt_idx+1)) 最低延迟]: " reality_choice
+      reality_choice="${reality_choice:-$((best_rt_idx+1))}"
+      [[ "$reality_choice" == "0" ]] && return
+
+      local idx=$((reality_choice - 1))
+      if (( idx >= 0 && idx < ${#reality_domains[@]} )); then
+        REALITY_SNI="${reality_domains[$idx]%%#*}"
+        DOMAIN="$REALITY_SNI"
+      else
+        REALITY_SNI="www.cloudflare.com"
+        DOMAIN="$REALITY_SNI"
+        idx=0
+      fi
+
+      green "已选择: ${REALITY_SNI}（VPS→伪装站 TLS 握手 ${reality_lats[$idx]} ms）"
+    fi
   else
     SELF_SIGN_CERT="0"
     read -r -p "请输入域名: " DOMAIN
@@ -1378,12 +1459,33 @@ var domains=[
 ];
 var running=false,results=[],selected=new Set();
 
-// Detect user real IP
-fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(d=>{
-  document.getElementById("myip").textContent = d.ip || "无法检测";
-}).catch(()=>{
-  document.getElementById("myip").textContent = "检测失败（可能被代理拦截）";
-});
+// Detect real IP via WebRTC (bypasses proxy/VPN)
+(function(){
+  try{
+    var pc = new (window.RTCPeerConnection||window.webkitRTCPeerConnection)({iceServers:[]});
+    pc.createDataChannel("");
+    pc.onicecandidate = function(e){
+      if(e.candidate){
+        var ip = e.candidate.candidate.split(" ")[4];
+        if(ip && ip.indexOf(".")>=0 && !ip.startsWith("192.168.") && !ip.startsWith("10.") && !ip.startsWith("172.1")){
+          document.getElementById("myip").innerHTML = ip + ' <span style=color:#888>(本地真实IP，已绕过代理)</span>';
+          pc.close();
+        }
+      }
+    };
+    pc.createOffer().then(function(s){pc.setLocalDescription(s)});
+  }catch(e){}
+  setTimeout(function(){
+    if(document.getElementById("myip").textContent.indexOf(".") < 0){
+      // fallback: use external API
+      fetch("https://api.ipify.org?format=json").then(function(r){return r.json()}).then(function(d){
+        document.getElementById("myip").innerHTML = (d.ip||"无法检测") + ' <span style=color:#888>(通过外部API)</span>';
+      }).catch(function(){
+        document.getElementById("myip").textContent = "检测失败";
+      });
+    }
+  },3000);
+})();
 
 function init(){var t=document.getElementById("tbody");t.innerHTML="";domains.forEach(function(d,i){var r=document.createElement("tr");r.id="row-"+i;r.innerHTML="<td>"+(i+1)+"</td><td>"+d.d+"</td><td>"+d.n+"</td><td id=lat-"+i+"><span class='bar wait' style=width:60px></span></td><td><input type=checkbox id=chk-"+i+" onchange=toggle("+i+")></td>";t.appendChild(r)})}
 function toggle(i){var c=document.getElementById("chk-"+i);c.checked?selected.add(i):selected.delete(i);updateSel()}
@@ -1397,7 +1499,8 @@ function submitDomains(){
   document.getElementById("status").textContent="提交中...";
   fetch("/submit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({domains:sel})})
   .then(r=>r.json()).then(d=>{
-    document.getElementById("status").innerHTML="<span style='color:#4caf50'>✓ 已提交 "+d.count+" 个域名到VPS:<br>"+d.domains.join(", ")+"</span><br><span style='color:#888'>可关闭此页面，回到终端继续</span>";
+    var ipInfo = d.client_ip ? "VPS看到的你: " + d.client_ip + "<br>" : "";
+    document.getElementById("status").innerHTML="<span style='color:#4caf50'>✓ 已提交 "+d.count+" 个域名到VPS:<br>"+d.domains.join(", ")+"</span><br>"+ipInfo+"<span style='color:#888'>可关闭此页面，回到终端继续</span>";
   }).catch(e=>{document.getElementById("status").innerHTML="<span style='color:red'>提交失败</span>，请确认VPS测速服务仍在运行";});
 }
 function stopTest(){running=false;document.getElementById("status").textContent="已停止"}
@@ -1420,7 +1523,7 @@ SPDT_EOF
 
   # Start server that handles POST /submit
   (cd /etc/sing-box/node-info && SPEED_PORT="${SPEED_PORT}" python3 << 'SRVEOF' &
-import http.server, json, os
+import http.server, json, os, datetime
 PORT = int(os.environ.get("SPEED_PORT","8888"))
 SAVE = "/etc/sing-box/node-info/selected_domains.txt"
 
@@ -1432,15 +1535,17 @@ class H(http.server.SimpleHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0))
         data = json.loads(self.rfile.read(length))
         domains = data.get("domains", [])
+        client_ip = self.client_address[0]
+        ts = datetime.datetime.now().strftime("%H:%M:%S")
         with open(SAVE, "w") as f:
             f.write(",".join(domains))
         self.send_response(200)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
-        resp = json.dumps({"ok": True, "count": len(domains), "domains": domains}, ensure_ascii=False)
+        resp = json.dumps({"ok": True, "count": len(domains), "domains": domains, "client_ip": client_ip}, ensure_ascii=False)
         self.wfile.write(resp.encode("utf-8"))
-        print("SAVED:", domains)
+        print("[%s] Received from %s: %s" % (ts, client_ip, ", ".join(domains)))
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -1451,6 +1556,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         pass
 
 srv = http.server.HTTPServer(("0.0.0.0", PORT), H)
+srv.timeout = 60
 try:
     print(f"Speedtest server on port {PORT}")
     srv.serve_forever()
@@ -1679,7 +1785,7 @@ select_argo_edge_server() {
   echo
   echo "可输入单个序号，或逗号分隔多个，例如: 1,11,12,14"
   echo "多选时会为每个域名生成独立 Argo 节点"
-  # Check if browser speedtest submitted domains
+  # Check if browser submitted domains from speedtest page
   if [[ -f /etc/sing-box/node-info/selected_domains.txt && -s /etc/sing-box/node-info/selected_domains.txt ]]; then
     local saved_doms
     saved_doms="$(cat /etc/sing-box/node-info/selected_domains.txt)"
@@ -1706,8 +1812,8 @@ select_argo_edge_server() {
           edge_choice="$saved_indices"
           green "已自动选择序号: ${saved_indices}"
         fi
-        rm -f /etc/sing-box/node-info/selected_domains.txt
       fi
+      rm -f /etc/sing-box/node-info/selected_domains.txt
     fi
   fi
   if [[ -z "${edge_choice:-}" ]]; then
@@ -1859,139 +1965,4 @@ net.ipv4.tcp_sack = 1
 net.ipv4.tcp_adv_win_scale = -2
 net.ipv4.udp_rmem_min = 4096
 net.ipv4.udp_wmem_min = 4096
-net.core.udp_mem = ${best_buffer_bytes} $((best_buffer_bytes * 2)) ${best_buffer_bytes}
-fs.file-max = 1048576
-EOF
-    sysctl -e -p "$BBR_SYSCTL" >/dev/null 2>&1 || true
-
-  # 网卡中断合并优化（降低延迟）
-  local _iface
-  _iface="$(ip route show default | awk '{print $5; exit}' 2>/dev/null || true)"
-  if [[ -n "$_iface" ]] && command -v ethtool >/dev/null 2>&1; then
-    ethtool -C "$_iface" adaptive-rx off adaptive-tx off rx-usecs 8 tx-usecs 8 2>/dev/null || true
-  fi
-    local cc
-    cc="$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || echo '')"
-    local qd
-    qd="$(sysctl -n net.core.default_qdisc 2>/dev/null || echo '')"
-    local rm
-    rm="$(sysctl -n net.core.rmem_max 2>/dev/null || echo '')"
-    echo
-    if [[ "$cc" == "bbr" ]]; then
-      green "调优生效：BBR + ${qd:-?}，缓冲区 ${rm:-?} bytes"
-    else
-      yellow "注意当前拥塞控制为 ${cc:-unknown} 而非 BBR"
-      yellow "  → 使用菜单 98 安装 BBRv3 内核，或确保内核支持 TCP BBR"
-      yellow "  → TCP 缓冲区等参数已正常生效"
-    fi
-  else
-    red "测速失败，请检查网络连通性后重试"
-  fi
-}
-
-show_help() {
-  cat <<EOF
-Usage:
-  ./install.sh
-  ./install.sh --help
-  ./install.sh --version
-
- 1) 安装 sing-box（注册 agsb 快捷命令）
- 2) 安装节点
- 3) 续签证书
- 4) 节点信息
- 5) 服务状态
- 6) 重启服务
- 7) 日志
- 8) 重置参数
- 9) 恢复备份
-10) 卸载
-93) 本地浏览器CDN测速
-94) Argo优选域名测速切换
-95) 代理机器调优
-96) 开启 fq qdisc
-97) 开启 cake qdisc
-98) 安装 BBRv3 内核
-99) 卸载 sing-box
-EOF
-}
-
-menu() {
-  while true; do
-    clear
-    cat <<EOF
-=============================================
-      五合一协议（Vless/Hy2/Tuic/Anytls/Vmess+Argo）
-=============================================
-$(detect_sing_box)
- 快捷命令 agsb
-=============================================
- 1) 安装sing-box
- 2) 安装节点
- 3) 续签证书
- 4) 节点信息
- 5) 服务状态
- 6) 重启服务
- 7) 日志
- 8) 重置参数
- 9) 恢复备份
-10) 卸载
-93) 本地浏览器测速（推荐）
-94) Argo优选域名（测速+切换）
-95) 代理机器调优（测速选优）
-96) 开启 fq qdisc
-97) 开启 cake qdisc
-98) 安装 BBRv3 内核
-99) 卸载 sing-box
- 0) 退出
-=============================================
-EOF
-    read -r -p "请选择 [0-99]: " choice
-    case "$choice" in
-      1) install_singbox_only; pause ;;
-      2) full_install; pause ;;
-      3) renew_cert; pause ;;
-      4) show_node_info; pause ;;
-      5) show_status; pause ;;
-      6) restart_services; pause ;;
-      7) show_logs; pause ;;
-      8) reset_menu; pause ;;
-      9) restore_latest_backup; pause ;;
-      10) uninstall_menu; pause ;;
-      95) tune_proxy_machine; pause ;;
-      96) enable_fq_qdisc; pause ;;
-      97) enable_cake_qdisc; pause ;;
-      98) install_bbrv3_only; pause ;;
-      99) uninstall_singbox_only; pause ;;
-      0) exit 0 ;;
-      *) yellow "无效选项"; pause ;;
-    esac
-  done
-}
-
-main() {
-  case "${1:-menu}" in
-    -h|--help|help)
-      show_help
-      ;;
-    -v|--version|version)
-      echo "${APP_NAME} ${APP_VERSION}"
-      ;;
-    --refresh-argo-subscription)
-      refresh_argo_subscription_once "${2:-manual}"
-      ;;
-    --wait-tcp)
-      wait_tcp_endpoint "${2:-}" "${3:-}" "${4:-45}"
-      ;;
-    menu)
-      require_root
-      require_supported_os
-      menu
-      ;;
-    *)
-      red "未知参数: $1"
-      show_help
-      exit 1
-      ;;
-  esac
-}
+net.core.udp_mem = ${best_buffer_bytes} $((be
