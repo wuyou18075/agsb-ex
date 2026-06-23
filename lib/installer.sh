@@ -2031,7 +2031,7 @@ EOF
 menu() {
   while true; do
     clear
-    cat <<"EOMENU"
+    cat <<EOMENU
 =============================================
       五合一协议（Vless/Hy2/Tuic/Anytls/Vmess+Argo）
 =============================================
