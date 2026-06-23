@@ -1112,7 +1112,7 @@ full_install() {
     # Generate self-signed cert for internal services
     mkdir -p "$SSL_DIR"
     if ! cert_files_exist; then
-      openssl req -x509 -nodes -newkey ec:<(openssl ecparam -name prime256v1)         -keyout "$SSL_DIR/private.key" -out "$SSL_DIR/fullchain.cer"         -days 3650 -subj "/CN=${DOMAIN}" 2>/dev/null
+      openssl req -x509 -nodes -newkey ec:<(openssl ecparam -name prime256v1)         -keyout "$SSL_DIR/private.key" -out "$SSL_DIR/fullchain.cer"         -days 3650 -subj "/CN=${DOMAIN}" -addext "subjectAltName=DNS:${DOMAIN}" 2>/dev/null
       green "自签证书已生成"
     fi
   else
