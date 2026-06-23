@@ -160,37 +160,3 @@ lib/
 | 提交日志 | 后端 Python 服务器打印时间戳 + 客户端 IP + 提交域名列表 |
 | 提交回显客户端 IP | 浏览器页面提交后显示 VPS 看到的客户端 IP |
 | 全协议安装菜单 | 直连协议（a1-a8）+ CDN 协议（b1-b5）分类选择，支持逗号混选 |
-
-### 13. 脚本自维护
-
-| 功能 | 说明 |
-|---|---|
-| 脚本自安装 | 安装时复制自身到 /usr/local/bin |
-| 远程更新 | 可通过 GitHub raw 重新拉取 |
-| jshook 认证 | 所有 curl 请求带 jshook header |
-
----
-
-## 依赖
-
-运行时自动安装：
-
-- curl、wget、openssl、nginx、jq
-- ca-certificates、python3、qrencode
-- iptables、nftables、systemd
-- sing-box（自官方脚本）
-- acme.sh（自动安装）
-- cloudflared（自动下载）
-- XanMod 内核（可选，通过官方源）
-
-## 兼容性
-
-| 项目 | 支持 |
-|---|---|
-| 系统 | Debian >= 10 / Ubuntu >= 20.04 |
-| 架构 | x86_64, aarch64, armv7 |
-| 内核 | 默认 BBR，可选升级 XanMod BBRv3 |
-
----
-
-> 本文档由脚本结构自动生成，后续功能变更会自动维护更新。
