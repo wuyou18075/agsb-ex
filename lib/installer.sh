@@ -1452,34 +1452,57 @@ var domains=[
 ];
 var running=false,results=[],selected=new Set();
 
-// Detect real IP via WebRTC (bypasses proxy/VPN)
+// Detect real IP - try multiple methods
 (function(){
+  var ipDisplayed = false;
+  function showIP(ip, via){
+    if(ipDisplayed) return;
+    ipDisplayed = true;
+    document.getElementById("myip").innerHTML = ip + ' <span style=color:#888>(' + via + ')</span>';
+  }
+
+  // Method 1: WebRTC (bypasses proxy)
   try{
     var pc = new (window.RTCPeerConnection||window.webkitRTCPeerConnection)({iceServers:[]});
     pc.createDataChannel("");
     pc.onicecandidate = function(e){
-      if(e.candidate){
-        var ip = e.candidate.candidate.split(" ")[4];
-        // Show first non-private IPv4 address found
-        if(ip && ip.indexOf(".")>=0 && !ip.startsWith("192.168.") && !ip.startsWith("10.") && !ip.startsWith("172.1") && !ip.startsWith("0.")){
-          document.getElementById("myip").innerHTML = ip + ' <span style=color:#888>(本地真实IP，已绕过代理)</span>';
-          pc.close();
+      if(e && e.candidate && e.candidate.candidate){
+        var parts = e.candidate.candidate.split(" ");
+        if(parts.length >= 5){
+          var ip = parts[4];
+          if(ip && ip.indexOf(".")>=0 && !ip.startsWith("192.168.") && !ip.startsWith("10.") && !ip.startsWith("172.1") && !ip.startsWith("0.") && !ip.startsWith("127.")){
+            showIP(ip, "本地IP，已绕过代理");
+            pc.close();
+          }
         }
       }
     };
     pc.createOffer().then(function(s){pc.setLocalDescription(s)});
   }catch(e){}
+
+  // Method 2: IPv4 API fallback
+  var ipDone = false;
+  function fallback(){
+    if(ipDone) return;
+    ipDone = true;
+    var timedOut = false;
+    var t = setTimeout(function(){ timedOut = true; }, 3000);
+    fetch("https://api.ipify.org?format=json", {mode: "cors"}).then(function(r){return r.json()}).then(function(d){
+      if(d && d.ip && !timedOut){ showIP(d.ip, "通过外部API"); }
+    }).catch(function(){
+      if(!timedOut){ showIP("无法获取", "API不可达"); }
+    }).finally(function(){ clearTimeout(t); });
+  }
+
   setTimeout(function(){
-    var cur = document.getElementById("myip").textContent;
-    if(cur.indexOf(".") < 0 || cur.indexOf("检测中") >= 0 || cur.indexOf("local") >= 0 || cur.indexOf("localhost") >= 0){
-      // fallback: use external API (prefer IPv4)
-      fetch("https://api.ipify.org?format=json").then(function(r){return r.json()}).then(function(d){
-        document.getElementById("myip").innerHTML = (d.ip||"无法检测") + ' <span style=color:#888>(通过外部API)</span>';
-      }).catch(function(){
-        document.getElementById("myip").textContent = "检测失败";
-      });
+    if(!ipDisplayed){ fallback(); }
+  }, 2000);
+
+  setTimeout(function(){
+    if(!ipDisplayed){
+      document.getElementById("myip").innerHTML = '无法检测 <span style=color:#888>（浏览器限制）</span>';
     }
-  },3000);
+  }, 5000);
 })();
 
 function init(){var t=document.getElementById("tbody");t.innerHTML="";domains.forEach(function(d,i){var r=document.createElement("tr");r.id="row-"+i;r.innerHTML="<td>"+(i+1)+"</td><td>"+d.d+"</td><td>"+d.n+"</td><td id=lat-"+i+"><span class='bar wait' style=width:60px></span></td><td><input type=checkbox id=chk-"+i+" onchange=toggle("+i+")></td>";t.appendChild(r)})}
