@@ -1713,7 +1713,12 @@ install_singbox_only() {
     if systemctl is-active --quiet sing-box.service 2>/dev/null; then
       green "安装成功，sing-box 已启动运行正常"
     else
-      yellow "暂无节点配置，请使用菜单 2「安装节点」创建配置后自动启动"
+      yellow "sing-box 已安装但尚无节点配置。"
+      read -r -p "现在安装节点？[Y/n]: " install_node_now
+      install_node_now="${install_node_now:-y}"
+      if [[ "$install_node_now" =~ ^[Yy]$ ]]; then
+        full_install
+      fi
     fi
   fi
 }
