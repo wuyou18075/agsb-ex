@@ -19,6 +19,19 @@
 
 ---
 
+## 2026-06-25 - 修复 sing-box 配置中 VMess-WS 入站标签重复
+
+### 问题
+`write_sing_box_config()` 的 jq 模板中，VMess-WS 入站对象出现了两次（两段完全相同的 `"tag": "vmess-ws-in"` 代码块），导致 sing-box 启动时报错 `duplicate inbound tag: vmess-ws-in`。
+
+### 修改列表
+
+| 文件 | 说明 |
+|------|------|
+| `lib/protocols.sh` | 删除第二段重复的 VMess-WS 入站对象（lines 248~279） |
+
+---
+
 ## 2026-06-24 - 修复订阅链接 URL 使用伪装域名而非服务器 IP 的问题
 
 ### 问题

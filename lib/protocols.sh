@@ -245,38 +245,6 @@ write_sing_box_config() {
       )
     }
   else empty end),
-  (if $vmess_enabled == "1" and $vmess_port != "" and $vmess_uuid != "" and $vmess_ws_path != "" then
-    {
-      "type": "vmess",
-      "tag": "vmess-ws-in",
-      "listen": $public_listen,
-      "listen_port": ($vmess_port | tonumber),
-      "users": [
-        {
-          "name": "vmess",
-          "uuid": $vmess_uuid,
-          "alterId": 0
-        }
-      ],
-      "transport": {
-        "type": "ws",
-        "path": $vmess_ws_path
-      },
-      "tls": (
-        if $vmess_tls_enabled == "1" then
-          {
-            "enabled": true,
-            "server_name": $domain,
-            "certificate_path": $cert_path,
-            "key_path": $key_path
-          }
-        else {
-            "enabled": false
-          }
-        end
-      )
-    }
-  else empty end),
   (if $tuic_enabled == "1" and $tuic_port != "" and $tuic_password != "" then
     {
       "type": "tuic",
