@@ -1223,6 +1223,14 @@ full_install() {
     install_ss2022_core
   fi
 
+  if [[ "$INSTALL_WANT_TUIC" == "1" ]]; then
+    install_tuic_core
+  fi
+
+  if [[ "$INSTALL_WANT_VMESS" == "1" ]]; then
+    install_vmess_core
+  fi
+
   save_state
   if has_vless_install; then
     cycle_argo_edge_server
@@ -1243,6 +1251,14 @@ full_install() {
   if has_argo_install; then
     cycle_argo_edge_server
     build_argo_share_files || true
+  fi
+  if has_tuic_install; then
+    cycle_argo_edge_server
+    build_tuic_share_files
+  fi
+  if has_vmess_install; then
+    cycle_argo_edge_server
+    build_vmess_share_files
   fi
   install_subscription_service || refresh_subscription_service
   save_state
@@ -2111,21 +2127,4 @@ main() {
     -v|--version|version)
       echo "${APP_NAME} ${APP_VERSION}"
       ;;
-    --refresh-argo-subscription)
-      refresh_argo_subscription_once "${2:-manual}"
-      ;;
-    --wait-tcp)
-      wait_tcp_endpoint "${2:-}" "${3:-}" "${4:-45}"
-      ;;
-    menu)
-      require_root
-      require_supported_os
-      menu
-      ;;
-    *)
-      red "未知参数: $1"
-      show_help
-      exit 1
-      ;;
-  esac
-}
+    --r
