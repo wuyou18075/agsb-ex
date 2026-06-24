@@ -37,12 +37,12 @@ NODE_NAME_VMESS="$NODE_NAME_VMESS_BASE"
 SCRIPT_SRC="${BASH_SOURCE[0]:-$0}"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SRC")" 2>/dev/null && pwd || dirname "$SCRIPT_SRC" 2>/dev/null || echo ".")"
 
-if [[ ! -f "${SCRIPT_DIR}/lib/base.sh" ]]; then
+if [[ ! -f "${SCRIPT_DIR}/lib/main.sh" ]]; then
   REMOTE_DIR="$(mktemp -d)" || { echo "无法创建临时目录"; exit 1; }
   mkdir -p "${REMOTE_DIR}/lib"
 
   echo "检测到远程安装，正在下载模块文件..."
-  for _lib in base.sh services.sh protocols.sh subscription.sh installer.sh; do
+  for _lib in main.sh node.sh test.sh; do
     _url="${GITHUB_RAW}/lib/${_lib}"
     _out="${REMOTE_DIR}/lib/${_lib}"
     if ! curl -fsSL "$_url" -o "$_out"; then
@@ -55,11 +55,9 @@ if [[ ! -f "${SCRIPT_DIR}/lib/base.sh" ]]; then
 fi
 
 # ==== Source modules ====
-source "${SCRIPT_DIR}/lib/base.sh"
-source "${SCRIPT_DIR}/lib/services.sh"
-source "${SCRIPT_DIR}/lib/protocols.sh"
-source "${SCRIPT_DIR}/lib/subscription.sh"
-source "${SCRIPT_DIR}/lib/installer.sh"
+source "${SCRIPT_DIR}/lib/main.sh"
+source "${SCRIPT_DIR}/lib/node.sh"
+source "${SCRIPT_DIR}/lib/test.sh"
 
 # ==== Entry ====
 main "$@"

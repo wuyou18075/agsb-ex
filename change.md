@@ -96,3 +96,43 @@
 |------|------|
 | `lib/base.sh` | `normalize_loaded_state()` 将 `apply_node_prefix` 移到 DOMAIN 守卫之前，确保每次 `load_state()` 后 NODE_PREFIX 都生效 |
 | `lib/protocols.sh` | `show_node_info()` 删除冗余的 `load_state \|\| true`（第 605 行），避免重复加载覆盖内存中的 NODE_PREFIX |
+
+---
+
+## 2026-06-25 - 精简菜单，删除选项 5-10
+
+### 问题
+菜单选项 5（服务状态）、6（重启服务）、7（日志）、8（重置参数）、9（恢复备份）、10（卸载）不再需要，予以删除。
+
+### 修改列表
+
+| 文件 | 说明 |
+|------|------|
+| `lib/installer.sh` | `menu()` 删除菜单显示中 5-10 项及对应 case 分支 |
+
+---
+
+## 2026-06-25 - 合并 lib 文件为 3 个
+
+### 问题
+原有 5 个 lib 文件（base.sh、services.sh、protocols.sh、subscription.sh、installer.sh）过于分散，合并为 3 个功能明确的文件。
+
+### 新文件结构
+
+| 文件 | 行数 | 内容 |
+|------|------|------|
+| `lib/main.sh` | ~4270 | 主安装器：base.sh + services.sh + installer.sh（去掉测速相关函数） |
+| `lib/node.sh` | ~2641 | 节点生成：protocols.sh + subscription.sh，可独立运行 |
+| `lib/test.sh` | ~606 | 在线测速：浏览器测速、Argo 测速切换、代理调优、BBR/qdisc |
+
+### 修改列表
+
+| 文件 | 说明 |
+|------|------|
+| `lib/main.sh` | 新建，合并 base.sh + services.sh + installer.sh |
+| `lib/node.sh` | 新建，合并 protocols.sh + subscription.sh |
+| `lib/test.sh` | 新建，提取测速/网络调优函数 |
+| `install.sh` | source 路径改为 main.sh / node.sh / test.sh |
+
+### 旧文件
+base.sh、services.sh、protocols.sh、subscription.sh、installer.sh 合并后可删除。
