@@ -1466,4 +1466,10 @@ detect_cloudflared_asset() {
 
   names="$(printf '%s' "$release_json" | jq -r '.assets[].name')"
   if ! printf '%s\n' "$names" | grep -Fxq "$asset"; then
-    red
+    red "未找到 cloudflared release 资产: ${asset}"
+    return 1
+  fi
+
+  printf '%s' "$asset"
+}
+
