@@ -646,6 +646,7 @@ prompt_port() {
         if ! port_in_use "$candidate"; then break; fi
       fi
     done
+    echo "${desc}端口已随机: ${candidate}"
   else
     if [[ ! "$candidate" =~ ^[0-9]+$ ]] || (( candidate < 1 || candidate > 65535 )); then
       red "端口格式错误，跳过"
