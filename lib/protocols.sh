@@ -346,12 +346,14 @@ generate_subscription_path() {
 
 subscription_url() {
   local addr=""
-  if [[ -n "${DOMAIN:-}" ]]; then
+  if [[ "${SELF_SIGN_CERT:-0}" == "1" ]]; then
+    addr="$(detect_public_ipv4 2>/dev/null || curl -s --connect-timeout 3 https://ip.sb 2>/dev/null || true)"
+  elif [[ -n "${DOMAIN:-}" ]]; then
     addr="$DOMAIN"
   else
     addr="$(preferred_direct_server_addr 2>/dev/null || curl -s --connect-timeout 3 https://ip.sb 2>/dev/null || true)"
-    [[ -n "$addr" ]] || return 1
   fi
+  [[ -n "$addr" ]] || return 1
   if [[ -n "${SUB_PORT:-}" && -n "${SUB_PATH:-}" ]]; then
     printf 'https://%s:%s/%s' "$addr" "$SUB_PORT" "$SUB_PATH"
   fi
@@ -510,67 +512,6 @@ generate_tuic_password() {
   TUIC_PASSWORD="$(generate_alnum_secret 24)"
 }
 
-generate_vmess_identity() {
-  VMESS_UUID="$(cat /proc/sys/kernel/random/uuid)"
-  VMESS_WS_PATH="/ws-$(openssl rand -hex 6)"
-  [[ -z "${VMESS_TLS_ENABLED:-}" ]] && VMESS_TLS_ENABLED="0"
-  if [[ "${ARGO_MULTI_EDGE:-0}" == "1" && -n "${ARGO_EDGE_SERVER:-}" ]]; then
-    VMESS_SERVER_ADDR="$ARGO_EDGE_SERVER"
-  else
-    VMESS_SERVER_ADDR="$(preferred_direct_server_addr || printf '%s\n' "$DOMAIN")"
-  fi
-}
-
-install_vmess_core() {
-  install_sing_box
-  prompt_port VMESS_PORT "VMess" || return
-  generate_vmess_identity
-  VMESS_ENABLED="1"
-  write_sing_box_config
-  build_vmess_share_files
-  return 0
-}
-
-build_vmess_share_files() {
-  local label e_label
-  label="$NODE_NAME_VMESS"
-  e_label="$(urlenc "$label")"
-  # Only build share files for non-Argo VMESS (Argo handles its own)
-  if [[ "${VMESS_TLS_ENABLED:-0}" == "1" ]]; then
-    uri="vmess://$(echo -n '{"add":"'"$VMESS_SERVER_ADDR"'","aid":"0","host":"'"$DOMAIN"'","id":"'"$VMESS_UUID"'","net":"ws","path":"'"$VMESS_WS_PATH"'","port":"'"$VMESS_PORT"'","ps":"'"$label"'","tls":"tls","sni":"'"$DOMAIN"'","fp":"chrome","type":"none","v":"2"}' | base64 -w 0)"
-  else
-    uri="vmess://$(echo -n '{"add":"'"$VMESS_SERVER_ADDR"'","aid":"0","id":"'"$VMESS_UUID"'","net":"ws","path":"'"$VMESS_WS_PATH"'","port":"'"$VMESS_PORT"'","ps":"'"$label"'","type":"none","v":"2"}' | base64 -w 0)"
-  fi
-  
-  cat > /etc/sing-box/node-info/vmess-share.txt <<EOF
-domain: $DOMAIN
-serverAddress: ${VMESS_SERVER_ADDR}
-serverPort: ${VMESS_PORT}
-uuid: ${VMESS_UUID}
-wsPath: ${VMESS_WS_PATH}
-tls: ${VMESS_TLS_ENABLED}
-
-=== VMess-WS URI ===
-$uri
-EOF
-
-  printf '%s\n' "$uri" > /etc/sing-box/node-info/vmess-subscription-raw.txt
-  base64 -w 0 < /etc/sing-box/node-info/vmess-subscription-raw.txt > /etc/sing-box/node-info/vmess-subscription-base64.txt
-
-  if command -v qrencode >/dev/null 2>&1; then
-    printf '%s' "$uri" | qrencode -o "/etc/sing-box/node-info/vmess-node-qr.png" -t PNG -s 8 -m 2 >/dev/null 2>&1 || true
-  fi
-}
-
-vmess_uri() {
-  local e_label
-  e_label="$(urlenc "$NODE_NAME_VMESS")"
-  if [[ "${VMESS_TLS_ENABLED:-0}" == "1" ]]; then
-    printf 'vmess://%s' "$(echo -n '{"add":"'"$VMESS_SERVER_ADDR"'","aid":"0","host":"'"$DOMAIN"'","id":"'"$VMESS_UUID"'","net":"ws","path":"'"$VMESS_WS_PATH"'","port":"'"$VMESS_PORT"'","ps":"'"$NODE_NAME_VMESS"'","tls":"tls","sni":"'"$DOMAIN"'","fp":"chrome","type":"none","v":"2"}' | base64 -w 0)"
-  else
-    printf 'vmess://%s' "$(echo -n '{"add":"'"$VMESS_SERVER_ADDR"'","aid":"0","id":"'"$VMESS_UUID"'","net":"ws","path":"'"$VMESS_WS_PATH"'","port":"'"$VMESS_PORT"'","ps":"'"$NODE_NAME_VMESS"'","type":"none","v":"2"}' | base64 -w 0)"
-  fi
-}
 
 generate_vmess_identity() {
   VMESS_UUID="$(cat /proc/sys/kernel/random/uuid)"
@@ -712,22 +653,12 @@ show_node_info() {
 
   if has_vmess_install; then
     cycle_argo_edge_server
-    if [[ -f /etc/sing-box/node-info/vmess-subscription-raw.txt ]]; then
-      sed /^[[:space:]]*$/d /etc/sing-box/node-info/vmess-subscription-raw.txt >> "$out_file"
-    else
-      vmess_uri >> "$out_file"
-      printf "\n" >> "$out_file"
-    fi
+    build_vmess_share_files
   fi
 
   if has_tuic_install; then
     cycle_argo_edge_server
-    if [[ -f /etc/sing-box/node-info/tuic5-subscription-raw.txt ]]; then
-      sed /^[[:space:]]*$/d /etc/sing-box/node-info/tuic5-subscription-raw.txt >> "$out_file"
-    else
-      tuic_uri >> "$out_file"
-      printf "\n" >> "$out_file"
-    fi
+    build_tuic_share_files
   fi
 
   if has_argo_install; then
@@ -767,6 +698,14 @@ show_node_info() {
     echo "[Shadowsocks-2022 URL]"
     if [[ -f "$SS2022_SUB_RAW_TXT" ]]; then
       sed -n '1p' "$SS2022_SUB_RAW_TXT"
+    fi
+    echo
+  fi
+
+  if has_vmess_install; then
+    echo "[VMess-WS URL]"
+    if [[ -f /etc/sing-box/node-info/vmess-subscription-raw.txt ]]; then
+      sed -n '1p' /etc/sing-box/node-info/vmess-subscription-raw.txt
     fi
     echo
   fi
