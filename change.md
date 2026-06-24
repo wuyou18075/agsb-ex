@@ -79,3 +79,20 @@
 3. **`install_anytls_core()`**：同上模式
 
 （`install_ss2022_core()` 无证书检查，不受影响。）
+
+---
+
+## 2026-06-25 - 修复自定义节点前缀 NODE_PREFIX 不生效
+
+### 问题
+用户在全安装时输入节点前缀（如"新加坡"），但节点信息仍显示历史前缀（如"xjp"）。
+
+### 根因
+`normalize_loaded_state()` 中 `apply_node_prefix` 被放在 `[[ -n "${DOMAIN:-}" ]]` 守卫之后（第 324 行）。当 `load_state()` 在 DOMAIN 为空的时机被调用时，`apply_node_prefix()` 被跳过，NODE_PREFIX 不会传播到 NODE_NAME_* 变量。此外 `show_node_info()` 中对 VLESS 有冗余的第二次 `load_state` 调用。
+
+### 修改列表
+
+| 文件 | 说明 |
+|------|------|
+| `lib/base.sh` | `normalize_loaded_state()` 将 `apply_node_prefix` 移到 DOMAIN 守卫之前，确保每次 `load_state()` 后 NODE_PREFIX 都生效 |
+| `lib/protocols.sh` | `show_node_info()` 删除冗余的 `load_state \|\| true`（第 605 行），避免重复加载覆盖内存中的 NODE_PREFIX |

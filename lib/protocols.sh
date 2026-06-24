@@ -602,7 +602,6 @@ show_node_info() {
   fi
 
   if has_vless_install; then
-    load_state || true
     cycle_argo_edge_server
     build_client_files
   fi

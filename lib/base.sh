@@ -321,9 +321,10 @@ load_state() {
 }
 
 normalize_loaded_state() {
+  apply_node_prefix
+
   [[ -n "${DOMAIN:-}" ]] || return 0
 
-  apply_node_prefix
   normalize_argo_tunnel_state
 
   if [[ "${HY2_ENABLED:-0}" == "1" ]]; then
