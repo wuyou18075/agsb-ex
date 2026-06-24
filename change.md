@@ -58,3 +58,24 @@
 |------|------|
 | `lib/protocols.sh` | `subscription_url()` 在 `SELF_SIGN_CERT=1` 时将协议改为 `http://` |
 | `lib/subscription.sh` | Python 订阅服务器新增 `--no-tls` 参数；`write_subscription_service()` 在自签模式下传 `--no-tls`；`install_subscription_service()` 跳过证书检查、确保自签证书存在 |
+
+---
+
+## 2026-06-25 - 修复自签证书模式下 HY2/TUIC/AnyTLS 安装失败
+
+### 问题
+`install_hysteria2_core()`、`install_tuic_core()`、`install_anytls_core()` 三个函数开头都有 `cert_matches_domain || cert_is_currently_valid` 证书检查，在自签证书模式（`SELF_SIGN_CERT=1`）下该检查会失败（自签证书的 SAN 与伪装域名不匹配或验证逻辑不适用），导致函数直接 `return 1`，整个协议未安装。
+
+### 修改列表
+
+| 文件 | 说明 |
+|------|------|
+| `lib/protocols.sh` | 三个安装函数均添加 `SELF_SIGN_CERT=1` 短路判断，自签模式下跳过域名证书检查 |
+
+### 改动细节
+
+1. **`install_hysteria2_core()`**：`if ! cert_matches_domain || ...` → `if [[ "${SELF_SIGN_CERT:-0}" != "1" ]] && { ! cert_matches_domain || ...; };`
+2. **`install_tuic_core()`**：同上模式
+3. **`install_anytls_core()`**：同上模式
+
+（`install_ss2022_core()` 无证书检查，不受影响。）

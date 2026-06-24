@@ -544,7 +544,7 @@ vmess_uri() {
 }
 
 install_tuic_core() {
-  if ! cert_matches_domain || ! cert_is_currently_valid; then
+  if [[ "${SELF_SIGN_CERT:-0}" != "1" ]] && { ! cert_matches_domain || ! cert_is_currently_valid; }; then
     red "当前域名证书不可用，请先执行菜单 3 修复证书。"
     return 1
   fi
@@ -830,7 +830,7 @@ EOF
 }
 
 install_anytls_core() {
-  if ! cert_matches_domain || ! cert_is_currently_valid; then
+  if [[ "${SELF_SIGN_CERT:-0}" != "1" ]] && { ! cert_matches_domain || ! cert_is_currently_valid; }; then
     red "当前域名证书不可用，请先执行菜单 2 修复证书。"
     return 1
   fi
@@ -1885,7 +1885,7 @@ build_combined_subscription_files() {
 }
 
 install_hysteria2_core() {
-  if ! cert_matches_domain || ! cert_is_currently_valid; then
+  if [[ "${SELF_SIGN_CERT:-0}" != "1" ]] && { ! cert_matches_domain || ! cert_is_currently_valid; }; then
     red "当前域名证书不可用，请先执行菜单 2 修复证书。"
     return 1
   fi
