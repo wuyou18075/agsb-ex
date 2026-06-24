@@ -53,11 +53,13 @@ write_uri_subscription_raw() {
   fi
 
   if has_vmess_install; then
+    cycle_argo_edge_server
+    build_vmess_share_files
     if [[ -f /etc/sing-box/node-info/vmess-subscription-raw.txt ]]; then
-      sed /^[[:space:]]*$/d /etc/sing-box/node-info/vmess-subscription-raw.txt >> "$out_file"
+      sed '/^[[:space:]]*$/d' /etc/sing-box/node-info/vmess-subscription-raw.txt >> "$out_file"
     else
       vmess_uri >> "$out_file"
-      printf "\n" >> "$out_file"
+      printf '\n' >> "$out_file"
     fi
   fi
 
@@ -65,7 +67,7 @@ write_uri_subscription_raw() {
     cycle_argo_edge_server
     build_tuic_share_files
     if [[ -f /etc/sing-box/node-info/tuic5-subscription-raw.txt ]]; then
-      sed /^[[:space:]]*$/d /etc/sing-box/node-info/tuic5-subscription-raw.txt >> "$out_file"
+      sed '/^[[:space:]]*$/d' /etc/sing-box/node-info/tuic5-subscription-raw.txt >> "$out_file"
     else
       tuic_uri >> "$out_file"
       printf "\n" >> "$out_file"
@@ -224,11 +226,43 @@ EOF
   fi
 
   if has_vmess_install; then
-    if [[ -f /etc/sing-box/node-info/vmess-subscription-raw.txt ]]; then
-      sed /^[[:space:]]*$/d /etc/sing-box/node-info/vmess-subscription-raw.txt >> "$out_file"
+    name="$NODE_NAME_VMESS"
+    proxies+=("$name")
+    if [[ "${VMESS_TLS_ENABLED:-0}" == "1" ]]; then
+      cat >> "$SUB_CLASH_YAML" <<EOF
+  - name: $(yaml_quote "$name")
+    type: vmess
+    server: $(yaml_quote "$VMESS_SERVER_ADDR")
+    port: ${VMESS_PORT}
+    uuid: $(yaml_quote "$VMESS_UUID")
+    alterId: 0
+    cipher: auto
+    network: ws
+    tls: true
+    udp: true
+    ip-version: ipv4-prefer
+    servername: $(yaml_quote "$DOMAIN")
+    client-fingerprint: chrome
+    ws-opts:
+      path: $(yaml_quote "$VMESS_WS_PATH")
+      headers:
+        Host: $(yaml_quote "$DOMAIN")
+EOF
     else
-      vmess_uri >> "$out_file"
-      printf "\n" >> "$out_file"
+      cat >> "$SUB_CLASH_YAML" <<EOF
+  - name: $(yaml_quote "$name")
+    type: vmess
+    server: $(yaml_quote "$VMESS_SERVER_ADDR")
+    port: ${VMESS_PORT}
+    uuid: $(yaml_quote "$VMESS_UUID")
+    alterId: 0
+    cipher: auto
+    network: ws
+    udp: true
+    ip-version: ipv4-prefer
+    ws-opts:
+      path: $(yaml_quote "$VMESS_WS_PATH")
+EOF
     fi
   fi
   if has_argo_install; then
@@ -314,15 +348,6 @@ dns:
 
 proxies:
 EOF
-
-  if has_vmess_install; then
-    if [[ -f /etc/sing-box/node-info/vmess-subscription-raw.txt ]]; then
-      sed /^[[:space:]]*$/d /etc/sing-box/node-info/vmess-subscription-raw.txt >> "$out_file"
-    else
-      vmess_uri >> "$out_file"
-      printf "\n" >> "$out_file"
-    fi
-  fi
   if has_argo_install; then
     ensure_argo_quick_service
     resolve_argo_domain "0" || true
