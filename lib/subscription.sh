@@ -476,7 +476,7 @@ class SubscriptionHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlsplit(self.path)
         normalized_path = parsed.path.strip("/")
-        is_all = normalized_path.endswith("/all") and normalized_path[:-4] == self.sub_path
+        is_all = normalized_path.endswith("/all") and normalized_path[:normalized_path.rfind("/")] == self.sub_path
         if normalized_path != self.sub_path and not is_all:
             self.send_error(404)
             return

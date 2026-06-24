@@ -346,10 +346,10 @@ generate_subscription_path() {
 
 subscription_url() {
   local addr=""
-  if [[ -n "${DOMAIN:-}" ]]; then
+  if [[ -n "${DOMAIN:-}" && "${SELF_SIGN_CERT:-0}" != "1" ]]; then
     addr="$DOMAIN"
   else
-    addr="$(preferred_direct_server_addr 2>/dev/null || curl -s --connect-timeout 3 https://ip.sb 2>/dev/null || true)"
+    addr="$(detect_public_ipv4 2>/dev/null || curl -s --connect-timeout 3 https://ip.sb 2>/dev/null || true)"
     [[ -n "$addr" ]] || return 1
   fi
   if [[ -n "${SUB_PORT:-}" && -n "${SUB_PATH:-}" ]]; then
