@@ -44,13 +44,17 @@
 | `lib/protocols.sh` | `subscription_url()` 中当 `SELF_SIGN_CERT=1` 时跳过 DOMAIN，直接使用 `detect_public_ipv4` 获取公网 IP |
 | `lib/subscription.sh` | Python 订阅服务器中 `/all` 路径的匹配逻辑修复，使用 `rfind("/")` 代替硬编码 `[:-4]` |
 
-### 改动细节
+### 改动细
+---
 
-1. **订阅 URL 生成 (`subscription_url`)**：
-   - 自签模式时使用 `detect_public_ipv4` 获取公网 IP 作为 fallback
-   - 有域名且非自签模式时使用 `DOMAIN` + `SUB_PORT`
-   - 无域名时通过 `preferred_direct_server_addr` 或 `ip.sb` 获取公网 IP
+## 2026-06-25 - 修复自签模式下订阅链接使用 HTTPS 而非 HTTP
 
-2. **`/all` 路径匹配**：
-   - Python 服务器使用 `rfind("/")` 代替硬编码 `[:-4]`，兼容路径结尾/不带斜杠的情况
+### 问题
+自签证书模式下，`subscription_url()` 输出 `https://IP:PORT/PATH`，但客户端无法验证自签证书，应使用 `http://`。
 
+### 修改列表
+
+| 文件 | 说明 |
+|------|------|
+| `lib/protocols.sh` | `subscription_url()` 在 `SELF_SIGN_CERT=1` 时将协议改为 `http://` |
+| `lib/subscription.sh` | Python 订阅服务器新增 `--no-tls` 参数；`write_subscription_service()` 在自签模式下传 `--no-tls`；`install_subscription_service()` 跳过证书检查、确保自签证书存在 |

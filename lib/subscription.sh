@@ -587,6 +587,7 @@ def main():
     parser.add_argument("--dir", required=True)
     parser.add_argument("--cert", required=True)
     parser.add_argument("--key", required=True)
+    parser.add_argument("--no-tls", action="store_true", default=False)
     parser.add_argument("--refresh-script", default="")
     parser.add_argument("--refresh-ttl", type=int, default=10)
     args = parser.parse_args()
@@ -597,9 +598,10 @@ def main():
     SubscriptionHandler.refresh_ttl = max(args.refresh_ttl, 0)
 
     httpd = make_http_server(args.host, args.port)
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    context.load_cert_chain(args.cert, args.key)
-    httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+    if not args.no_tls:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(args.cert, args.key)
+        httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
     httpd.serve_forever()
 
 
@@ -610,7 +612,11 @@ PY
 }
 
 write_subscription_service() {
-  local argo_after="" argo_prestart="" argo_wants="" refresh_args=""
+  local argo_after="" argo_prestart="" argo_wants="" refresh_args="" tls_flag=""
+
+  if [[ "${SELF_SIGN_CERT:-0}" == "1" ]]; then
+    tls_flag=" --no-tls"
+  fi
 
   if has_argo_install; then
     install_self_script || true
@@ -629,7 +635,7 @@ Wants=network-online.target${argo_wants}
 [Service]
 Type=simple
 ${argo_prestart}
-ExecStart=/usr/bin/python3 ${SUB_SERVER_SCRIPT} --host :: --port ${SUB_PORT} --path ${SUB_PATH} --dir ${SUBSCRIPTION_DIR} --cert ${SSL_DIR}/fullchain.cer --key ${SSL_DIR}/private.key${refresh_args}
+ExecStart=/usr/bin/python3 ${SUB_SERVER_SCRIPT} --host :: --port ${SUB_PORT} --path ${SUB_PATH} --dir ${SUBSCRIPTION_DIR} --cert ${SSL_DIR}/fullchain.cer --key ${SSL_DIR}/private.key${tls_flag}${refresh_args}
 Restart=on-failure
 RestartSec=5s
 
@@ -653,9 +659,18 @@ build_subscription_payload_files() {
 }
 
 install_subscription_service() {
-  if ! cert_matches_domain || ! cert_is_currently_valid; then
-    yellow "订阅服务需要可用域名证书，已跳过 HTTPS 订阅服务。"
-    return 1
+  if [[ "${SELF_SIGN_CERT:-0}" != "1" ]]; then
+    if ! cert_matches_domain || ! cert_is_currently_valid; then
+      yellow "订阅服务需要可用域名证书，已跳过订阅服务。"
+      return 1
+    fi
+  else
+    # 自签证书模式：确保证书文件存在
+    if ! cert_files_exist; then
+      mkdir -p "$SSL_DIR"
+      local sn="${DOMAIN:-selfsigned.localhost}"
+      openssl req -x509 -nodes -newkey ec:<(openssl ecparam -name prime256v1)         -keyout "$SSL_DIR/private.key" -out "$SSL_DIR/fullchain.cer"         -days 3650 -subj "/CN=${sn}" -addext "subjectAltName=DNS:${sn}" 2>/dev/null
+    fi
   fi
 
   systemctl stop "$SUB_SERVICE" >/dev/null 2>&1 || true

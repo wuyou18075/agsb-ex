@@ -314,9 +314,10 @@ generate_subscription_path() {
 }
 
 subscription_url() {
-  local addr=""
+  local addr="" proto="https"
   if [[ "${SELF_SIGN_CERT:-0}" == "1" ]]; then
     addr="$(detect_public_ipv4 2>/dev/null || curl -s --connect-timeout 3 https://ip.sb 2>/dev/null || true)"
+    proto="http"
   elif [[ -n "${DOMAIN:-}" ]]; then
     addr="$DOMAIN"
   else
@@ -324,7 +325,7 @@ subscription_url() {
   fi
   [[ -n "$addr" ]] || return 1
   if [[ -n "${SUB_PORT:-}" && -n "${SUB_PATH:-}" ]]; then
-    printf 'https://%s:%s/%s' "$addr" "$SUB_PORT" "$SUB_PATH"
+    printf '%s://%s:%s/%s' "$proto" "$addr" "$SUB_PORT" "$SUB_PATH"
   fi
 }
 
