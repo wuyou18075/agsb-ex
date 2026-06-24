@@ -100,6 +100,7 @@ write_sing_box_config() {
     --arg tuic_enabled "${TUIC_ENABLED:-0}" \
     --arg tuic_port "${TUIC_PORT:-}" \
     --arg tuic_password "${TUIC_PASSWORD:-}" \
+    --arg tuic_uuid "${TUIC_UUID:-}" \
     --arg tuic_tls_sni "${TUIC_TLS_SNI:-${DOMAIN:-}}" \
     --arg public_listen "$public_listen" '
 [
@@ -284,7 +285,7 @@ write_sing_box_config() {
       "listen_port": ($tuic_port | tonumber),
       "users": [
         {
-          "uuid": $tuic_password,
+          "uuid": (if $tuic_uuid != "" then $tuic_uuid else $uuid end),
           "password": $tuic_password
         }
       ],
@@ -509,6 +510,7 @@ pick_tuic_server_addr() {
 }
 
 generate_tuic_password() {
+  TUIC_UUID="${UUID:-$(cat /proc/sys/kernel/random/uuid)}"
   TUIC_PASSWORD="$(generate_alnum_secret 24)"
 }
 
@@ -1934,4 +1936,4 @@ install_hysteria2_core() {
   return 0
 }
 
-                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                         

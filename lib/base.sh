@@ -193,6 +193,8 @@ VMESS_SERVER_ADDR=""
 TUIC_ENABLED="0"
 TUIC_PORT=""
 TUIC_PASSWORD=""
+TUIC_UUID=""
+TUIC_SERVER_ADDR=""
 TUIC_TLS_SNI=""
 SUB_ENABLED="0"
 SUB_PORT=""
@@ -555,6 +557,7 @@ save_state() {
       printf 'TUIC_ENABLED=%q\n' "${TUIC_ENABLED:-}"
       printf 'TUIC_PORT=%q\n' "${TUIC_PORT:-}"
       printf 'TUIC_PASSWORD=%q\n' "${TUIC_PASSWORD:-}"
+      printf 'TUIC_UUID=%q\n' "${TUIC_UUID:-}"
       printf 'TUIC_SERVER_ADDR=%q\n' "${TUIC_SERVER_ADDR:-}"
       printf 'TUIC_TLS_SNI=%q\n' "${TUIC_TLS_SNI:-}"
       printf 'NODE_PREFIX=%q\n' "${NODE_PREFIX:-}"
@@ -1316,6 +1319,7 @@ clear_tuic_state_for_profile() {
   TUIC_ENABLED="0"
   TUIC_PORT=""
   TUIC_PASSWORD=""
+  TUIC_UUID=""
   TUIC_SERVER_ADDR=""
   TUIC_TLS_SNI=""
   rm -f /etc/sing-box/node-info/tuic5-share.txt /etc/sing-box/node-info/tuic5-subscription-raw.txt
@@ -1462,10 +1466,4 @@ detect_cloudflared_asset() {
 
   names="$(printf '%s' "$release_json" | jq -r '.assets[].name')"
   if ! printf '%s\n' "$names" | grep -Fxq "$asset"; then
-    red "未找到 cloudflared release 资产: ${asset}"
-    return 1
-  fi
-
-  printf '%s' "$asset"
-}
-
+    red
